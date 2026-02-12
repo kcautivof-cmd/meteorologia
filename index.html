@@ -3453,5 +3453,18 @@ chartInstance = new Chart(ctx, {
 // Inicialización: fuerza cálculo de análisis/nota según variable seleccionada
 document.addEventListener('DOMContentLoaded', ()=>{ try{ updateChart(); }catch(e){} });
 </script>
+    <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(reg) {
+        console.log('Service Worker registrado correctamente:', reg.scope);
+      })
+      .catch(function(err) {
+        console.error('Error registrando Service Worker:', err);
+      });
+  });
+}
+</script>
 </body>
 </html>
