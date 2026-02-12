@@ -1,0 +1,3457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METEOROLOGIA APLICADA</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+
+    <!-- LEAFLET (MAPA INTERACTIVO) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+
+    <style>
+        :root {
+            --bg: #ffffff;
+            --text: #111111;
+            --muted: #4f4f4f;
+            --border: #b9b9b9;
+            --panel: #f4f4f4;
+            --panel2: #e9e9e9; /* títulos */
+            --accent: #2f2f2f;
+            --orange: #2f2f2f;
+            --cyan: #2f2f2f;
+            --red: #2f2f2f;
+            --yellow: #2f2f2f;
+        }
+
+body {
+            background-color: var(--bg); color: var(--text);
+            font-family: 'Consolas', monospace; font-size: 11px;
+            margin: 0; padding: 10px; text-transform: uppercase; overflow-x: hidden;
+        }
+
+        /* SPLASH */
+        #splashScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; }
+        .splash-content { text-align: center; border: 1px solid var(--border); padding: 40px; background: var(--panel); box-shadow: none; min-width: 300px; }
+        .splash-title { font-size: 3em; color: var(--text); margin: 0 0 30px 0; text-shadow: none; letter-spacing: 4px; }
+        .enter-btn { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 15px 50px; font-size: 1.2em; font-family: 'Consolas', monospace; cursor: pointer; text-transform: uppercase; font-weight: bold; transition: all 0.2s; }
+        .enter-btn:hover { filter: brightness(0.98); }
+        .loading-text { margin-top: 15px; color: var(--muted); font-size: 0.9em; }
+
+        /* HEADER */
+        .header { text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 5px; position: relative; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+        .header-content { width: 100%; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.6em; letter-spacing: 2px; text-shadow: none; }
+        .status { font-size: 0.9em; font-weight: bold; margin-top:5px; display:block;}
+        #printDateLabel { display: none; font-size: 1.2em; font-weight: bold; margin-top:5px; padding: 2px 10px; border: 2px solid var(--panel); }
+
+        /* CLOCK & LOGO */
+        .tactical-clock { text-align: left; border: 1px solid var(--border); padding: 5px 10px; background: var(--panel); font-size: 1.1em; width: fit-content; }
+        .clock-row { display: block; }
+        .zulu-time { color: var(--cyan); }
+        .logo-container { width: 55px; height: 55px; border-radius: 50%; border: 1px solid var(--border); overflow: hidden; background: var(--panel); box-shadow: none; display: flex; align-items: center; justify-content: center; margin-left: auto; }
+        .unit-logo { width: 100%; height: 100%; object-fit: cover; }
+
+        .source-bar { text-align: center; color: var(--muted); font-size: 0.9em; margin-bottom: 10px; border: 1px dashed var(--border); padding: 4px; background: var(--panel); }
+
+        /* CONTROLS */
+        .control-bar { display: flex; gap: 10px; border: 1px solid var(--border); padding: 10px; margin-bottom: 10px; align-items: center; background: var(--panel); flex-wrap: wrap; }
+        input, select, button { background: var(--bg); color: var(--text); border: 1px solid var(--border); padding: 8px; font-family: 'Consolas', monospace; text-transform: uppercase; font-size: 11px; }
+        input { width: 200px; }
+        button { cursor: pointer; border: 1px solid var(--text); background: var(--panel); font-weight: bold; }
+        button:hover { filter: brightness(0.98); }
+        select { width: 250px; }
+        .print-btn { background: var(--bg); color: var(--text); border: 1px solid var(--text); padding: 5px 10px; font-size: 1.5em; line-height: 1; width: 40px; text-align: center; }
+        .print-btn:hover { background: var(--text); color: var(--text); }
+
+        /* GRID */
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .panel { border: 1px solid var(--border); padding: 10px; background: var(--panel); }
+        .panel-title {
+            color: var(--text);
+            font-weight: bold;
+            border-bottom: 1px solid var(--border);
+            padding: 6px 8px;
+            margin: -10px -10px 10px -10px;
+            background: var(--panel2);
+            display: block;
+        }
+
+        .surface-data { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .big-value { font-size: 3em; color: var(--text); display: block; line-height: 1; margin-bottom: 5px; text-shadow: none; }
+        .current-weather-text { color: var(--text); font-size: 1.1em; font-weight: bold; margin-bottom: 5px; display: block; }
+
+        .twilight-display { border: 1px solid var(--border); background: var(--bg); padding: 5px; margin-top: 5px; text-align: center; }
+        .tw-label { font-size: 0.7em; color: var(--muted); display: block; }
+        .tw-time { font-size: 1.4em; color: var(--cyan); font-weight: bold; }
+
+        .data-row { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 4px; color: var(--muted); border-bottom: 1px solid var(--panel); padding-bottom: 2px; }
+        .data-row span:last-child { color: var(--text); font-weight: bold; }
+
+        .sources-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
+        .source-btn { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 8px; text-decoration: none; text-align: center; display: block; font-size: 10px; transition: 0.2s; cursor: pointer; }
+        .source-btn:hover { border-color: var(--orange); color: var(--orange); background: var(--panel); }
+
+        /* TIMELINE SCROLL */
+        .timeline-container { border: 1px solid var(--border); padding: 10px; overflow-x: auto; white-space: nowrap; background: var(--panel); margin-bottom: 10px; height: auto; }
+        .day-card { width: 230px; background: var(--panel); border: 1px solid var(--border); padding: 8px; display: inline-block; vertical-align: top; margin-right: 5px; }
+        .day-card.today { border: 2px solid var(--border); background: var(--panel); transform: scale(1.02); }
+        .day-card.past { border-top: 3px solid #555; opacity: 0.6; filter: grayscale(100%); }
+        .day-card.future { border-top: 3px solid var(--cyan); }
+
+        .t-date { color: var(--orange); font-weight: bold; font-size: 1.1em; border-bottom: 1px solid #222; margin-bottom: 4px; text-align: center; }
+        .t-weather-row { text-align:center; font-size:0.85em; color: var(--text); margin-bottom:5px; height:30px; white-space: normal; line-height:1; display:flex; align-items:center; justify-content:center; border-bottom:1px solid var(--border); }
+        .card-row { display: flex; justify-content: space-between; font-size: 0.85em; margin-bottom: 2px; color: var(--muted); border-bottom: 1px solid var(--panel); padding: 1px 0; }
+        .card-row span:last-child { color: var(--text); font-weight: bold; }
+        .peak-time { font-size: 0.85em; color: var(--cyan); }
+        .op-status { margin-top:5px; background: var(--panel); padding:4px; font-size:0.9em; text-align:center; color: var(--text); border: 1px dashed var(--border); font-weight:bold; }
+
+        .extras-container { display: grid; grid-template-columns: 50% 50%; gap: 10px; height: 400px; overflow: hidden; }
+        .map-box { border: 1px solid var(--border); width: 100%; height: 100%; padding: 0; background: var(--panel); }
+        iframe { width: 100%; height: 100%; border: none; }
+        .chart-box { border: 1px solid var(--border); background: var(--panel); position: relative; padding: 10px; height: 100%; box-sizing: border-box; }
+
+        #mainChart { width: 100% !important; height: 230px !important; }
+
+
+        /* ALERTAS */
+        #alertContainer { margin-bottom:10px; }
+        .alerts-list{
+            display:grid;
+            grid-template-columns: 1fr;
+            gap:6px;
+            max-height: 160px;
+            overflow:auto;
+            padding-right: 4px;
+        }
+        .alert-item{
+            border:1px solid var(--border);
+            background: var(--bg);
+            padding:8px;
+            display:flex;
+            flex-direction:column;
+            gap:4px;
+        }
+        .alert-top{
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+            align-items:flex-start;
+        }
+        .alert-title{
+            font-weight:bold;
+            font-size:11px;
+            line-height:1.2;
+        }
+        .alert-badges{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;}
+        .badge{
+            border:1px solid var(--border);
+            padding:2px 6px;
+            font-size:10px;
+            background: var(--panel);
+            white-space:nowrap;
+        }
+        .badge.red{ border-color:#b10000; }
+        .badge.orange{ border-color:#b35a00; }
+        .badge.yellow{ border-color:#9a7a00; }
+        .badge.green{ border-color:#2a7a2a; }
+
+        .alerts-controls{
+            display:flex;
+            gap:6px;
+            align-items:center;
+            margin-bottom:6px;
+            flex-wrap:wrap;
+        }
+        .alerts-select{
+            flex:1;
+            min-width: 140px;
+            padding:4px 6px;
+            border:1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size:10px;
+        }
+        .badge.risk-high{ border-color:#b10000; background: rgba(177,0,0,0.08); }
+        .badge.risk-med{ border-color:#b35a00; background: rgba(179,90,0,0.08); }
+        .badge.risk-low{ border-color:#2a7a2a; background: rgba(42,122,42,0.08); }
+        .badge.risk-info{ border-color:#4f4f4f; background: rgba(79,79,79,0.08); }
+        .alert-item.is-new{ outline:2px solid rgba(0,0,0,0.10); }
+
+      .alert-meta{
+            font-size:10px;
+            color: var(--muted);
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+        }
+        .alert-link{
+            font-size:10px;
+            text-decoration:underline;
+            cursor:pointer;
+        }
+
+        /* CONCLUSION */
+        #autoConclusion { display: none; margin-bottom: 10px; border: 1px solid var(--panel); padding: 10px; background: var(--panel); }
+        .conclusion-title { font-weight: bold; font-size: 1.1em; margin-bottom: 5px; display: block; color: var(--text); border-bottom: 1px solid #ccc; padding-bottom:3px; }
+        .conclusion-body { font-size: 0.9em; line-height: 1.4; color: var(--text); white-space: pre-wrap; }
+
+        /* IMPRESION GRAFICOS */
+        #printCharts { display: none; margin-top: 10px; page-break-inside: avoid; }
+        .print-chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .print-chart-wrapper { border: 1px solid var(--panel); padding: 5px; height: 150px; background: #fff; }
+
+        @media print {
+            @page { size: landscape; margin: 5mm; }
+            body { background-color: var(--text) !important; color: var(--panel) !important; font-family: 'Arial Narrow', sans-serif !important; padding: 0 !important; -webkit-print-color-adjust: exact; }
+
+            #splashScreen, .control-bar, .source-btn, .dmc-btn, #volcanoStatus, #alertContainer, .map-box, .extras-container, .day-card.past { display: none !important; }
+
+            .header { border-bottom: 2px solid var(--panel) !important; margin-bottom: 5px !important; min-height: 40px !important; }
+            .header h1 { color: var(--panel) !important; text-shadow: none !important; font-size: 1.6em !important; padding: 0 !important; }
+            #statusMsg { display: none !important; }
+            #printDateLabel { display: block !important; color: var(--panel) !important; text-align: center; }
+
+            .tactical-clock { border: 1px solid var(--panel) !important; background: #fff !important; color: var(--panel) !important; padding: 2px !important; font-size: 0.9em !important; }
+            .zulu-time { color: var(--panel) !important; font-weight: bold; }
+            .logo-container { border: 2px solid var(--panel) !important; box-shadow: none !important; width:45px !important; height:45px !important; }
+
+            .source-bar { border: 1px solid var(--panel) !important; background: #fff !important; color: var(--panel) !important; margin-bottom: 5px !important; font-size: 0.7em !important; }
+            .source-bar span { color: var(--panel) !important; }
+            .main-grid { display: block !important; }
+            .panel { border: 1px solid var(--panel) !important; background: #fff !important; padding: 5px !important; margin-bottom: 0 !important; }
+            .panel-title { color: var(--panel) !important; border-bottom: 1px solid var(--panel) !important; background: #ddd !important; padding: 2px !important; font-size: 0.9em !important; }
+
+            .big-value { color: var(--panel) !important; text-shadow: none !important; font-size: 2em !important; }
+            .current-weather-text { color: var(--panel) !important; font-size: 1em !important; }
+            .data-row, .card-row { color: var(--panel) !important; border-bottom: 1px dotted #999 !important; font-size: 0.8em !important; margin-bottom: 2px !important; }
+            .data-row span:last-child, .card-row span:last-child { color: var(--panel) !important; font-weight: bold !important; }
+            .twilight-display { border: 1px solid var(--panel) !important; background: #fff !important; padding: 2px !important; }
+            .tw-time { color: var(--panel) !important; font-size: 1em !important; }
+            #valCloudBase { color: var(--panel) !important; }
+
+            #autoConclusion { display: block !important; margin: 5px 0 !important; font-size: 0.9em !important; }
+
+            .timeline-container {
+                height: auto !important;
+                display: grid !important;
+                grid-template-columns: repeat(6, 1fr) !important;
+                gap: 3px !important;
+                border: none !important;
+                padding: 0 !important;
+                margin-bottom: 5px !important;
+            }
+            .day-card { width: 100% !important; background: #fff !important; border: 1px solid var(--panel) !important; padding: 3px !important; font-size: 0.7em !important; }
+            .day-card.today { border: 2px solid var(--panel) !important; transform: none !important; }
+            .t-date { color: var(--panel) !important; background: #ccc; font-size: 1.1em !important; }
+            .t-weather-row { color: var(--panel) !important; font-weight: bold; height: auto !important; margin: 2px 0 !important; }
+            .op-status { background: #eee !important; color: var(--panel) !important; border: 1px solid var(--panel) !important; padding: 2px !important; }
+
+            #printCharts { display: block !important; page-break-before: auto; }
+            canvas { filter: none !important; }
+            .sources-grid { display: none !important; }
+        }
+    
+        /* MAPA SELECCIÓN DE PUNTO (ANCHO COMPLETO) */
+        .fullwidth-panel { border: 1px solid var(--border); padding: 10px; background: var(--panel); margin-bottom: 10px; }
+        #pickMap { width: 100%; height: 520px; border: 1px solid var(--border); background: var(--panel); }
+        .map-hint { font-size: 10px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+    
+        /* CHART CONTROLS */
+        .chart-controls { display:none; /* oculto, reemplazado por menú inferior */
+            
+            position: static;
+            left: 6px;
+            top: 6px;
+            z-index: 12;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            background: rgba(255,255,255,0.92);
+            padding: 6px;
+            border: 1px solid var(--border);
+            max-width: calc(100% - 140px);
+            box-sizing: border-box;
+        }
+        .chart-controls select, .chart-controls input, .chart-controls button {
+            width: auto !important;
+            padding: 4px 6px !important;
+            font-size: 10px !important;
+            border: 1px solid #333 !important;
+        }
+        .chart-subcontrols {
+            display: none;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .chart-subcontrols.show { display: flex; }
+
+        .ctl-group { display:flex; flex-direction:column; gap:2px; }
+        .ctl-label { font-size:9px; color:#9a9a9a; letter-spacing:1px; }
+        .chart-controls { display:none; /* oculto, reemplazado por menú inferior */
+             border-radius:4px; }
+
+
+        /* CHART MENU BOTTOM (PRO) */
+        .chart-menu-bottom{
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 8px;
+            border: 1px solid var(--border);
+            background: var(--panel);
+        }
+        \1
+
+        .chart-menu-bottom .group{
+            width: 180px;
+            min-width: 180px;
+        }
+
+        .chart-menu-bottom label{
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: .5px;
+        }
+        .chart-menu-bottom select, .chart-menu-bottom input{
+            width: 100%;
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 8px;
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .chart-menu-bottom .row{
+            display:flex;
+            gap:10px;
+            flex-wrap: wrap;
+            width:100%;
+            justify-content:center;
+        }
+        
+
+/* === AJUSTE CONTRASTE + TEXTO NEGRO (REQUERIDO) === */
+:root{
+  --bg:#ffffff;
+  --panel:#f2f2f2;
+  --panel2:#e4e4e4;
+  --border:#9c9c9c;
+  --text:#111111;
+  --muted:#333333;
+  --accent:#111111;
+  --orange:#111111;
+  --cyan:#111111;
+  --red:#111111;
+  --yellow:#111111;
+}
+body, body * { color: var(--text) !important; }
+::placeholder { color: #666 !important; opacity: 1; }
+a { color: var(--text) !important; }
+.source-btn:hover { color: var(--text) !important; border-color: var(--border) !important; }
+.zulu-time, .tw-time, .peak-time { color: var(--text) !important; }
+#volcanoStatus { color: var(--text) !important; }
+
+/* Cajas de títulos (gris suave) */
+.panel-title{ background: var(--panel2) !important; }
+
+/* Leaflet control estilo sobrio */
+.leaflet-control, .leaflet-control * { color: var(--text) !important; font-family: 'Consolas', monospace !important; text-transform: uppercase; }
+.leaflet-control { background: rgba(255,255,255,0.95) !important; border: 1px solid var(--border) !important; box-shadow: none !important; }
+
+
+/* === UI PRO: CONTROL BAR (COMPACTO Y RESPONSIVO) === */
+.control-bar{
+  flex-wrap: nowrap !important;
+  overflow-x: hidden; /* evita sensación de que “falta pantalla” */
+  gap: 8px;
+  align-items: center;
+}
+.control-bar > div{ flex: 0 0 auto; }
+
+/* Compactar anchos para que quepa en pantalla */
+#cityInput{ width: 150px; }
+#latDms, #lonDms{ width: 150px !important; }
+#sourceSelect, #modelSelect{ width: 170px; }
+#themeMode{ width: 90px; }
+
+/* Inputs/Selects/Botones uniformes */
+.control-bar button, .control-bar select, .control-bar input{
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  font-size: 10px;
+}
+.control-bar button{
+  min-width: 140px;
+}
+
+/* Si la pantalla es chica, permitimos wrap (sin desorden) */
+@media (max-width: 1100px){
+  .control-bar{
+    flex-wrap: wrap !important;
+  }
+  .control-bar > div{
+    flex: 1 1 220px;
+    min-width: 220px;
+  }
+  #cityInput, #latDms, #lonDms, #sourceSelect, #modelSelect, #themeMode{
+    width: 100% !important;
+  }
+  .control-bar button{
+    width: 100%;
+    min-width: 0;
+  }
+}
+/* === TEMA OSCURO (LETRAS BLANCAS) === */
+body.dark-mode{
+  --bg:#0f172a;
+  --panel:#111827;
+  --panel2:#1f2937;
+  --border:#334155;
+  --text:#ffffff;
+  --muted:#cbd5e1;
+  --accent:#ffffff;
+  --orange:#ffffff;
+  --cyan:#ffffff;
+  --red:#ffffff;
+  --yellow:#ffffff;
+}
+body.dark-mode .leaflet-control{ background: rgba(15,23,42,0.95) !important; }
+
+
+/* FORCE MANUAL DATE RANGE VISIBLE */
+#uiArchiveRow{ display:flex !important; }
+
+
+/* === ANALISIS PLEGABLE (LIVIANO / PRO) === */
+.analysis-toggle-wrap{
+  margin: 0 0 8px 0;
+  border: 1px solid var(--border);
+  background: var(--panel);
+}
+.analysis-toggle-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:6px 8px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+}
+.analysis-btn{
+  width:auto !important;
+  padding:6px 10px !important;
+  font-size:10px !important;
+  border:1px solid var(--border) !important;
+  background: var(--bg) !important;
+}
+.analysis-btn:hover{ filter: brightness(0.98); }
+.analysis-title{
+  font-weight:bold;
+  letter-spacing: 1px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.analysis-body{
+  display:none;
+  padding:8px;
+  background: var(--panel);
+}
+.analysis-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:6px 14px;
+}
+.analysis-row{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 3px 0;
+}
+.analysis-row span:first-child{ color: var(--muted); }
+.analysis-row span:last-child{ font-weight:bold; }
+.analysis-note{
+  margin-top:6px;
+  font-size:10px;
+  color: var(--muted);
+  border-top: 1px dashed var(--border);
+  padding-top:6px;
+}
+
+</style>
+</head>
+<body>
+
+    <div id="splashScreen">
+        <div class="splash-content">
+            
+            <h1 class="splash-title">METEOROLOGIA</h1>
+            <button class="enter-btn" onclick="enterSystem()">ACCEDER AL SISTEMA</button>
+            <div class="loading-text" id="loadingStatus">INICIALIZANDO SATÉLITES...</div>
+        </div>
+    </div>
+
+    <div id="mainSystem">
+        <div class="header">
+            <div class="header-content">
+                <div class="tactical-clock">
+                    <div class="clock-row">LOC: <span id="clockLocal">--:--:--</span></div>
+                    <div class="clock-row zulu-time">UTC: <span id="clockZulu">--:--:-- Z</span></div>
+                </div>
+
+                <div>
+                    <h1>METEOROLOGIA</h1>
+                    <div class="status" id="statusMsg">SISTEMA ACTIVO - DATOS RECIBIDOS</div>
+                    <div id="printDateLabel">--/--/---- --:--</div>
+                </div>
+
+                <div class="logo-container">
+                    
+                    <div class="logo-placeholder" style="display:none;">CPDI<br>MI</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="source-bar" id="sourceInfo"></div>
+
+        <div id="autoConclusion">
+            <span class="conclusion-title">CONCLUSIÓN:</span>
+            <span id="conclusionText" class="conclusion-body">Generando análisis...</span>
+        </div>
+
+        <div class="control-bar">
+            <div>
+                <span>UBICACIÓN:</span>
+                <input type="text" id="cityInput" value="" placeholder="Ciudad, País">
+            </div>
+
+            <div style="display:flex; gap:6px; align-items:center; flex-wrap:nowrap;">
+                <label style="display:flex; gap:6px; align-items:center;">
+                    <input type="checkbox" id="useManualCoords" style="width:auto;" checked>
+                    <span>COORD. MANUALES (GMS)</span>
+                </label>
+
+                <input type="text" id="latDms" value="20°12\'50&quot;S" placeholder='LAT (EJ: 20°12\'30"S)' style="width: 220px;">
+                <input type="text" id="lonDms" value="70°09\'07&quot;W" placeholder='LON (EJ: 70°08\'15"W)' style="width: 220px;">
+            </div>
+
+            <button onclick="executeSearch()">ACTUALIZAR DATOS</button>
+
+            <div style="margin-left: auto; display: flex; gap: 10px; align-items: center; flex-wrap:nowrap;">
+
+                <span>MODO:</span>
+                <select id="themeMode">
+                    <option value="claro" selected>CLARO</option>
+                    <option value="oscuro">OSCURO</option>
+                </select>
+
+                                <span>FUENTE:</span>
+                <select id="sourceSelect" onchange="executeSearch()">
+                    <option value="auto" selected>AUTO</option>
+                    <option value="openmeteo">OPEN-METEO</option>
+                    <option value="meteoblue">METEOBLUE</option>
+                    <option value="pirate">PIRATE WEATHER</option>
+                </select>
+
+                                <span>MODELO:</span>
+                <select id="modelSelect" onchange="executeSearch()">
+                    <option value="ecmwf_ifs04">ECMWF (EUROPA - RECOMENDADO)</option>
+                    <option value="best_match" selected>AUTO (OPTIMIZADO)</option>
+                    <option value="gfs_seamless">GFS (NOAA - USA)</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="alertContainer" class="panel">
+            <span class="panel-title">ALERTAS OFICIALES (SENAPRED)</span>
+            <div id="alertsMeta" style="font-size:10px; color:var(--muted); margin-bottom:6px;">
+                CARGANDO ALERTAS... | ÚLTIMA ACTUALIZACIÓN: <span id="lastUpdateUTC">--:-- UTC</span>
+            </div>
+            
+            <div class="alerts-controls">
+                <select id="alertsFilterRegion" class="alerts-select" title="Filtrar por región">
+                    <option value="__all__">REGIÓN: TODAS</option>
+                </select>
+                <select id="alertsFilterType" class="alerts-select" title="Filtrar por tipo">
+                    <option value="__all__">TIPO: TODOS</option>
+                    <option value="SIGMET">SIGMET</option>
+                    <option value="VOLCANICO">VOLCÁNICO</option>
+                    <option value="TORMENTAS">TORMENTAS</option>
+                    <option value="OTROS">OTROS</option>
+                </select>
+            </div>
+
+            <div id="alertsList" class="alerts-list"></div>
+        </div>
+
+<div class="main-grid">
+            <div class="panel">
+                <span class="panel-title">REPORTE SITUACIONAL: <span id="lblCity" style="color: var(--text)">--</span></span>
+
+                <div class="surface-data">
+                    <div>
+                        <span style="color:var(--muted); font-size:0.8em">CONDICIÓN ACTUAL</span>
+                        <span class="current-weather-text" id="valWeatherDesc">--</span>
+                        <span class="big-value" id="valTemp">--°</span>
+
+                        <div class="data-row"><span>SENSACIÓN:</span> <span id="valApparent">--°</span></div>
+                        <div class="data-row"><span>HUMEDAD:</span> <span id="valHum">--%</span></div>
+                        <div class="data-row"><span>VIENTO:</span> <span id="valWind">--</span></div>
+                    </div>
+                    <div>
+                        <span style="color:var(--muted); font-size:0.8em">AERONÁUTICA & ASTRONOMÍA</span>
+
+                        <div class="twilight-display" style="border-color:var(--yellow)">
+                            <span class="tw-label" style="color:var(--yellow)">TECHO NUBES (ESTIMADO)</span>
+                            <span class="tw-time" id="valCloudBase" style="color: var(--text); font-size:1.1em">-- M / -- FT</span>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px; margin-top:5px;">
+                            <div class="twilight-display">
+                                <span class="tw-label">INICIO (CCCM)</span>
+                                <span class="tw-time" id="valCccm">--:--</span>
+                            </div>
+                            <div class="twilight-display">
+                                <span class="tw-label">TÉRMINO (TCCV)</span>
+                                <span class="tw-time" id="valTccv" style="color:var(--orange)">--:--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:10px; padding-top:5px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:0.9em;">
+                    <span>VISIBILIDAD: <span id="valVis" style="color: var(--text); font-weight:bold">--</span></span>
+                    <span>RÁFAGAS: <span id="valGust" style="color:var(--red); font-weight:bold">--</span></span>
+                    <span>UV: <span id="valUv" style="color:yellow; font-weight:bold">--</span></span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <span class="panel-title">FUENTES DE INFORMACIÓN</span>
+                <div class="sources-grid">
+                    <a onclick="window.open('https://www.meteochile.gob.cl/')" class="source-btn">DMC / METEOCHILE.CL</a>
+                    <a onclick="window.open('https://www.meteored.cl/')" class="source-btn">METEORED.CL</a>
+                    <a onclick="window.open('https://www.cr2.cl/')" class="source-btn">CR2 (CLIMA/RESILIENCIA)</a>
+                    <a onclick="window.open('https://servimet.armada.mil.cl/')" class="source-btn">ARMADA (SERVIMET)</a>
+                    <a onclick="window.open('http://www.shoa.cl/')" class="source-btn">SHOA (OCEANOGRAFÍA)</a>
+                    <a onclick="window.open('https://senapred.cl/informate/eventos')" class="source-btn">SENAPRED (ALERTAS)</a>
+                    <a onclick="window.open('https://www.saf.cl/')" class="source-btn">SAF (AEROFOTOGRAMETRÍA)</a>
+                    <a onclick="window.open('https://www.sernageomin.cl/')" class="source-btn">SERNAGEOMIN</a>
+                    <a onclick="window.open('https://www.windy.com/')" class="source-btn">WINDY</a>
+                    <a onclick="window.open('https://open-meteo.com/')" class="source-btn">OPEN-METEO API</a>
+                </div>
+                <div id="volcanoStatus" style="font-size: 10px; margin-top:10px; text-align: center; color:#666;">SCANNEANDO RED SERNAGEOMIN...</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <span class="panel-title">LÍNEA DE TIEMPO</span>
+            <div class="timeline-container" id="timelineBox"></div>
+        </div>
+
+        <div class="extras-container">
+            <div class="map-box">
+                <iframe id="windyEmbed" src=""></iframe>
+            </div>
+            <div class="chart-box">
+<div class="chart-controls"><div class="chart-controls">
+                    <div class="ctl-group">
+                        <span class="ctl-label">MODO</span>
+                        <select id="timeMode" onchange="onTimeControlsChanged()">
+                            <option value="daily">DIARIO</option>
+                            <option value="hourly">HORARIO</option>
+                        </select>
+                    </div>
+
+                    <div class="ctl-group">
+                        <span class="ctl-label">RANGO</span>
+                        <select id="rangeMode" onchange="onTimeControlsChanged()">
+                            <option value="past7_today">7D + HOY</option>
+                            <option value="today_future10">HOY + 10</option>
+                            <option value="all_loaded">TODO (CARGADO)</option>
+                            <option value="archive_custom" selected>AÑOS PASADOS (ARCHIVO)</option>
+                        </select>
+                    </div>
+
+                    <div class="ctl-group">
+                        <span class="ctl-label">SUAVIZADO</span>
+                        <select id="smoothMode" onchange="updateChart()">
+                            <option value="none">SIN</option>
+                            <option value="ma3">MEDIA 3</option>
+                            <option value="ma5">MEDIA 5</option>
+                        </select>
+                    </div>
+
+                    <div id="hourlyControls" class="chart-subcontrols">
+                        <div class="ctl-group">
+                            <span class="ctl-label">DÍA</span>
+                            <select id="hourDay" onchange="updateChart()"></select>
+                        </div>
+                        <div class="ctl-group">
+                            <span class="ctl-label">VENTANA</span>
+                            <select id="hourWindow" onchange="updateChart()">
+                                <option value="24">24H</option>
+                                <option value="48">48H</option>
+                                <option value="72">72H</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="archiveControls" class="chart-subcontrols">
+                        <div class="ctl-group">
+                            <span class="ctl-label">DESDE</span>
+                            <input type="date" id="archFrom" onchange="document.getElementById('rangeMode').value='archive_custom'; updateChart(true)">
+                        </div>
+                        <div class="ctl-group">
+                            <span class="ctl-label">HASTA</span>
+                            <input type="date" id="archTo" onchange="document.getElementById('rangeMode').value='archive_custom'; updateChart(true)">
+                        </div>
+                        <div class="ctl-group">
+                            <span class="ctl-label">AGREGAR</span>
+                            <select id="archAgg" onchange="updateChart()">
+                                <option value="daily">DIARIO</option>
+                                <option value="monthly">MES</option>
+                                <option value="yearly">AÑO</option>
+                            </select>
+                        </div>
+                        <button onclick="refreshArchiveAndChart()">APLICAR</button>
+                    </div>
+                </div></div>
+
+                
+                <!-- ANALISIS (PLEGABLE) -->
+                <div class="analysis-toggle-wrap" id="analysisWrap">
+                    <div class="analysis-toggle-head">
+                        <div class="analysis-title">ANÁLISIS</div>
+                        <button class="analysis-btn" id="btnToggleAnalysis" type="button">VER ANÁLISIS</button>
+                    </div>
+                    <div class="analysis-body" id="analysisBody">
+                        <div class="analysis-grid" id="analysisGrid"></div>
+                        <div class="analysis-note" id="analysisNote"></div>
+                    </div>
+                </div>
+
+<canvas id="mainChart"></canvas>
+
+                <div class="chart-menu-bottom" id="chartMenuBottom">
+    <div class="row" id="uiArchiveRow" style="display:flex;">
+        <div class="group">
+            <label>📅 DESDE</label>
+            <input type="date" id="uiArchFrom" onchange="document.getElementById('archFrom').value=this.value; refreshArchiveAndChart();">
+        </div>
+
+        <div class="group">
+            <label>📅 HASTA</label>
+            <input type="date" id="uiArchTo" onchange="document.getElementById('archTo').value=this.value; refreshArchiveAndChart();">
+        </div>
+
+        <div class="group">
+            <label>VARIABLE</label>
+            <select id="chartVar" onchange="updateChart()">
+                <option value="temp">TEMPERATURA</option>
+                <option value="wind">VIENTO</option>
+                <option value="precip">PRECIPITACIÓN</option>
+                <option value="snow">NIEVE</option>
+                <option value="pressure">PRESIÓN</option>
+                <option value="humidity">HUMEDAD</option>
+                <option value="clouds">NUBOSIDAD</option>
+            </select>
+        </div>
+
+        <div class="group">
+            <label>SUAVIZADO</label>
+            <select id="uiSmooth" onchange="__syncChartMenu();">
+                <option value="none" selected>SIN</option>
+                <option value="ma3">MEDIA 3</option>
+                <option value="ma5">MEDIA 5</option>
+            </select>
+        </div>
+    </div>
+</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        
+        <div class="fullwidth-panel">
+            <span class="panel-title">MAPA</span>
+            <div id="pickMap"></div>
+            <div class="map-hint">CLICK EN EL MAPA PARA ACTUALIZAR LA UBICACIÓN (ACTIVA COORD. MANUALES GMS Y EJECUTA ACTUALIZACIÓN)</div>
+        
+        <div class="fullwidth-panel" id="dataQueryWrap" style="display:none;">
+            <span class="panel-title">DATOS CONSULTADOS</span>
+            <div id="dataQueryMeta" style="margin-bottom:8px; font-size:11px; text-transform:none; color: var(--text);"></div>
+            <div id="dataQueryTable" style="overflow-x:auto;"></div>
+        </div>
+
+</div>
+
+<div id="printCharts">
+            <div class="panel-title" style="color:var(--panel); border-bottom:1px solid var(--panel); margin-bottom:5px;">ANÁLISIS GRÁFICO DETALLADO</div>
+            <div class="print-chart-row">
+                <div class="print-chart-wrapper"><canvas id="pChartTemp"></canvas></div>
+                <div class="print-chart-wrapper"><canvas id="pChartWind"></canvas></div>
+            </div>
+            <div class="print-chart-row">
+                <div class="print-chart-wrapper"><canvas id="pChartHum"></canvas></div>
+                <div class="print-chart-wrapper"><canvas id="pChartClouds"></canvas></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalData = null;
+        let chartInstance = null;
+        let pcTemp, pcWind, pcHum, pcClouds;
+        let currentStatusText = "--";
+        let lastLat = null;
+        let lastLon = null;
+
+        // === MULTI-FUENTE (Worker) ===
+        // meteo-proxy.kcautivof.workers.dev.
+        // Ejemplo: "meteo-proxy.kcautivof.workers.dev"
+        // Si tu Worker está en el mismo dominio, puedes dejarlo como "".
+        const WORKER_BASE_URL = "https://meteo-proxy.kcautivof.workers.dev";
+
+        function buildWorkerUrl(params){
+            const base = (WORKER_BASE_URL || "").replace(/\/$/, "");
+            const url = base ? (base + "/forecast") : "/forecast";
+            const qs = new URLSearchParams(params);
+            return url + "?" + qs.toString();
+        }
+
+
+// === ALERTAS (SENAPRED via Worker /alerts) ===
+// Renderiza el formato REAL del Worker:
+// { count, updatedAt/updated_at, items/alertas: [{ titulo, fechaHora, riesgo, contenido, urlAccess, ... }] }
+
+function buildWorkerUrlPath(path, params){
+    const base = (WORKER_BASE_URL || "").replace(/\/$/, "");
+    const url = base ? (base + path) : path;
+    const qs = new URLSearchParams(params || {});
+    return qs.toString() ? (url + "?" + qs.toString()) : url;
+}
+
+function clean(input){
+    // Quita HTML y deja texto limpio (sin "HTML sucio")
+    if (input === null || input === undefined) return "";
+    try{
+        const s = String(input);
+        const doc = new DOMParser().parseFromString(s, "text/html");
+        const txt = (doc.body && doc.body.textContent) ? doc.body.textContent : s;
+        return txt.replace(/\s+/g, " ").trim();
+    }catch(e){
+        return String(input).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    }
+}
+
+// --- ALERTAS (UI + filtros + mapa) ---
+let __alertsState = {
+    items: [],
+    lastFingerprints: new Set(),
+    layerGroup: null
+};
+
+function __alertsFingerprint(it){
+    const a = (it.id || it.uid || it.codigo || it.code || "").toString();
+    const b = (it.titulo || it.title || "").toString();
+    const c = (it.fechaHora || it.fecha_hora || it.date || it.fecha || "").toString();
+    const d = (it.urlAccess || it.url_access || it.url || "").toString();
+    return (a || (b + "|" + c + "|" + d)).slice(0, 500);
+}
+
+function __alertsClassifyRisk(it){
+    const raw = clean(it.riesgo || it.nivel || it.level || it.color || it.severity || "");
+    const hay = (raw + " " + (it.titulo||it.title||"")).toLowerCase();
+
+    // Mapeo típico Chile/SENAPRED
+    if(hay.includes("roja") || hay.includes("extrema") || hay.includes("alto")) return { label:"ALTO", cls:"risk-high" };
+    if(hay.includes("naranja") || hay.includes("moderad")) return { label:"MEDIO", cls:"risk-med" };
+    if(hay.includes("amarilla") || hay.includes("bajo")) return { label:"BAJO", cls:"risk-low" };
+    if(hay.includes("verde") || hay.includes("temprana") || hay.includes("inform")) return { label:"INFO", cls:"risk-info" };
+
+    // Fallback: si el Worker ya trae algo útil, lo mostramos pero con estilo neutro
+    return raw ? { label: raw.toUpperCase(), cls:"" } : { label:"", cls:"" };
+}
+
+function __alertsClassifyType(it){
+    const hay = ((it.tipo || it.type || "") + " " + (it.titulo||it.title||"") + " " + (it.contenido||it.descripcion||it.summary||"")).toLowerCase();
+    if(hay.includes("sigmet")) return "SIGMET";
+    if((hay.includes("va") && hay.includes("eru")) || hay.includes("volc") || hay.includes("lasc") || hay.includes("erup")) return "VOLCANICO";
+    if(hay.includes("torment") || hay.includes(" ts ") || hay.includes("thunder") || hay.includes("embd ts")) return "TORMENTAS";
+    return "OTROS";
+}
+
+function __alertsExtractRegions(it){
+    // Si vienen campos explícitos, prioriza eso
+    const direct = it.region || it.regionName || it.region_nombre || it.region_name || null;
+    if(direct) return [clean(direct)];
+
+    const regions = [];
+    const hay = ((it.zona||it.area||"") + " " + (it.titulo||it.title||"") + " " + (it.contenido||it.descripcion||it.summary||"")).toLowerCase();
+
+    const known = [
+        "tarapacá","tarapaca","antofagasta","atacama","coquimbo","valparaíso","valparaiso",
+        "metropolitana","o'higgins","ohiggins","maule","ñuble","nuble","biobío","biobio",
+        "araucanía","araucania","los ríos","los rios","los lagos","aysén","aysen",
+        "magallanes","arica","parinacota"
+    ];
+    known.forEach(k=>{
+        if(hay.includes(k)){
+            let name = k.toUpperCase();
+            name = name.replace("LOS RIOS","LOS RÍOS");
+            name = name.replace("AYSEN","AYSÉN");
+            name = name.replace("NUBLE","ÑUBLE");
+            name = name.replace("BIOBIO","BIOBÍO");
+            regions.push(name);
+        }
+    });
+
+    return regions.length ? Array.from(new Set(regions)) : ["NACIONAL"];
+}
+
+function __alertsGetGeometry(it){
+    // Buscamos un GeoJSON o geometría simple
+    const g = it.geometry || it.geojson || it.geometria || it.shape || it.areaGeojson || it.area_geojson || null;
+    if(!g) {
+        // bbox: [minLon, minLat, maxLon, maxLat]
+        const bb = it.bbox || it.bounds || it.boundingBox || it.bounding_box || null;
+        if(Array.isArray(bb) && bb.length===4){
+            return { kind:"bbox", bbox: bb.map(Number) };
+        }
+        // coords: [{lat,lon}] o [[lat,lon]] o [[lon,lat]]
+        const coords = it.coords || it.coordinates || it.polygon || it.poly || it.line || it.polyline || null;
+        if(coords) return { kind:"coords", coords };
+        return null;
+    }
+
+    // Si viene como string, intenta parsear
+    if(typeof g === "string"){
+        try { return { kind:"geojson", geojson: JSON.parse(g) }; } catch(_e){ return null; }
+    }
+    // Si viene como objeto ya
+    if(typeof g === "object") return { kind:"geojson", geojson: g };
+    return null;
+}
+
+function __alertsEnsureLayer(){
+    try{
+        if(typeof L === "undefined") return null;
+        if(!__pickMap) return null;
+
+        if(__alertsState.layerGroup) return __alertsState.layerGroup;
+        __alertsState.layerGroup = L.layerGroup().addTo(__pickMap);
+        return __alertsState.layerGroup;
+    }catch(_e){
+        return null;
+    }
+}
+
+function __alertsDrawOnMap(it){
+    const geom = __alertsGetGeometry(it);
+    if(!geom) return;
+
+    const lg = __alertsEnsureLayer();
+    if(!lg) return;
+
+    lg.clearLayers();
+
+    try{
+        if(geom.kind === "geojson" && geom.geojson){
+            const layer = L.geoJSON(geom.geojson, { style: { weight: 2 } });
+            layer.addTo(lg);
+            try{ __pickMap.fitBounds(layer.getBounds(), { padding: [18,18] }); }catch(_e){}
+            return;
+        }
+
+        if(geom.kind === "bbox"){
+            const [minLon, minLat, maxLon, maxLat] = geom.bbox;
+            const b = L.latLngBounds([minLat, minLon], [maxLat, maxLon]);
+            L.rectangle(b, { weight: 2 }).addTo(lg);
+            __pickMap.fitBounds(b, { padding: [18,18] });
+            return;
+        }
+
+        if(geom.kind === "coords"){
+            const c = geom.coords;
+            let pts = [];
+            if(Array.isArray(c)){
+                if(c.length && typeof c[0] === "object" && c[0] && ("lat" in c[0] || "lon" in c[0] || "lng" in c[0])){
+                    pts = c.map(p=>[Number(p.lat), Number(p.lon ?? p.lng)]);
+                }else if(c.length && Array.isArray(c[0])){
+                    pts = c.map(p=>{
+                        const a=Number(p[0]), b=Number(p[1]);
+                        // heurística: Chile lat ~ -17..-56, lon ~ -66..-76
+                        if(a < 0 && a > -90 && b < 0 && b > -180){
+                            // probablemente [lat,lon]
+                            return [a,b];
+                        }
+                        // probablemente [lon,lat]
+                        return [b,a];
+                    });
+                }
+            }
+            if(pts.length >= 3){
+                const poly = L.polygon(pts, { weight:2 }).addTo(lg);
+                __pickMap.fitBounds(poly.getBounds(), { padding: [18,18] });
+            }else if(pts.length >= 2){
+                const line = L.polyline(pts, { weight:2 }).addTo(lg);
+                __pickMap.fitBounds(line.getBounds(), { padding: [18,18] });
+            }else if(pts.length === 1){
+                L.marker(pts[0]).addTo(lg);
+                __pickMap.setView(pts[0], 8);
+            }
+        }
+    }catch(e){
+        console.warn("No se pudo dibujar geometría:", e);
+    }
+}
+
+function __alertsPopulateRegionFilter(items){
+    const sel = document.getElementById("alertsFilterRegion");
+    if(!sel) return;
+
+    const prev = sel.value || "__all__";
+    const set = new Set();
+    items.forEach(it=>{
+        __alertsExtractRegions(it).forEach(r=> set.add((r||"NACIONAL").toUpperCase()));
+    });
+    const regions = Array.from(set).sort((a,b)=>a.localeCompare(b, 'es'));
+
+    sel.innerHTML = `<option value="__all__">REGIÓN: TODAS</option>` + regions.map(r=>`<option value="${r}">${r}</option>`).join("");
+    if(regions.includes(prev)) sel.value = prev;
+}
+
+function __alertsApplyFilters(items){
+    const rSel = document.getElementById("alertsFilterRegion");
+    const tSel = document.getElementById("alertsFilterType");
+    const regionVal = rSel ? rSel.value : "__all__";
+    const typeVal = tSel ? tSel.value : "__all__";
+
+    return items.filter(it=>{
+        const t = __alertsClassifyType(it);
+        const regs = __alertsExtractRegions(it).map(x=>(x||"NACIONAL").toUpperCase());
+
+        const okType = (typeVal==="__all__") ? true : (t === typeVal);
+        const okReg  = (regionVal==="__all__") ? true : regs.includes(regionVal);
+
+        return okType && okReg;
+    });
+}
+
+function __alertsRender(){
+    const meta = document.getElementById('alertsMeta');
+    const list = document.getElementById('alertsList');
+    if(!meta || !list) return;
+
+    const items = __alertsApplyFilters(__alertsState.items);
+
+    // Orden: riesgo alto primero, luego fecha desc
+    const riskScore = (it)=>{
+        const r = __alertsClassifyRisk(it).cls;
+        if(r==="risk-high") return 3;
+        if(r==="risk-med") return 2;
+        if(r==="risk-low") return 1;
+        return 0;
+    };
+
+    __alertsState.filtered = null;
+
+    const sorted = items.slice().sort((a,b)=>{
+        const ra = riskScore(a), rb = riskScore(b);
+        if(rb !== ra) return rb - ra;
+        const da = new Date(a.fechaHora || a.fecha_hora || a.date || a.fecha || 0).getTime() || 0;
+        const db = new Date(b.fechaHora || b.fecha_hora || b.date || b.fecha || 0).getTime() || 0;
+        return db - da;
+    });
+
+    __alertsState.filtered = sorted;
+
+    if(!sorted.length){
+        list.innerHTML = `
+            <div class="alert-item">
+                <div class="alert-title">SIN ALERTAS (FILTRO ACTUAL)</div>
+                <div class="alert-meta"><span>—</span><span>—</span></div>
+            </div>`;
+        return;
+    }
+
+    list.innerHTML = sorted.map((it, idx)=>{
+        const titulo = clean(it.titulo || it.title || "ALERTA").toUpperCase();
+        const fechaRaw = it.fechaHora || it.fecha_hora || it.date || it.fecha || null;
+        const dt = fechaRaw ? new Date(fechaRaw) : null;
+        const fecha = (dt && !isNaN(dt.getTime())) ? dt.toLocaleDateString('es-CL') : "N/D";
+        const hora  = (dt && !isNaN(dt.getTime())) ? dt.toLocaleTimeString('es-CL',{hour12:false}).slice(0,5) : "";
+        const contenido = clean(it.contenido || it.descripcion || it.summary || it.body || "");
+        const href = (it.urlAccess || it.url_access || it.url || "").toString();
+
+        const risk = __alertsClassifyRisk(it);
+        const type = __alertsClassifyType(it);
+        const regs = __alertsExtractRegions(it).map(x=>(x||"NACIONAL").toUpperCase());
+        const regionLabel = regs[0] || "NACIONAL";
+
+        const fp = __alertsFingerprint(it);
+        const isNew = !__alertsState.lastFingerprints.has(fp);
+
+        const hasGeom = !!__alertsGetGeometry(it);
+
+        // click: centra/dibuja si hay geometría
+
+        return `
+            <div class="alert-item ${isNew ? "is-new":""}" data-fp="${fp}">
+                <div class="alert-top">
+                    <div class="alert-title">${titulo}</div>
+                    <div class="alert-badges">
+                        ${risk.label ? `<span class="badge ${risk.cls}">${risk.label}</span>` : ``}
+                        <span class="badge">${type}</span>
+                        ${regionLabel ? `<span class="badge">${regionLabel}</span>` : ``}
+                        ${hora ? `<span class="badge">${hora}</span>` : ``}
+                    </div>
+                </div>
+                <div class="alert-meta">
+                    <span>${fecha}${hora?` ${hora}`:""}</span>
+                    <span>${hasGeom ? "MAPA" : (href ? "WEB" : "—")}</span>
+                </div>
+                ${contenido ? `<div style="font-size:10px; color: var(--muted); line-height:1.3;">${contenido}</div>` : ``}
+                <div style="display:flex; gap:8px; align-items:center; margin-top:4px;">
+                    ${href ? `<div class="alert-link" onclick="window.open('${href}','_blank')">VER DETALLE ↗</div>` : ``}
+                    ${hasGeom ? `<div class="alert-link" onclick="__alertsDrawOnMap(__alertsState.filtered[${idx}])">VER EN MAPA ⤢</div>` : ``}
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function fetchAlerts(){
+    const meta = document.getElementById('alertsMeta');
+    const list = document.getElementById('alertsList');
+    if(!meta || !list) return;
+
+    try{
+        meta.textContent = "ACTUALIZANDO ALERTAS...";
+        const url = buildWorkerUrlPath("/alerts", { region: "nacional", limit: "40" });
+        const r = await fetch(url, { headers: { "Accept": "application/json" } });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        const js = await r.json();
+
+        const itemsRaw = js.items || js.alertas || js.alerts || js.data || [];
+        const items = Array.isArray(itemsRaw) ? itemsRaw : [];
+
+        const count = Number.isFinite(js.count) ? js.count : items.length;
+
+        const updatedStr = js.updatedAt || js.updated_at || js.updated || js.lastUpdate || null;
+        const updated = updatedStr ? new Date(updatedStr) : null;
+
+        meta.textContent =
+            `FUENTE: SENAPRED (WORKER) | ${count} ALERTAS | ACTUALIZADO: ` +
+            `${updated && !isNaN(updated.getTime()) ? updated.toLocaleString('es-CL',{hour12:false}) : "N/D"}`;
+
+        
+        try{ __setLastUpdateUTC(); }catch(e){}
+// ✅ Mensaje “Sin alertas activas” cuando count=0
+        if(!count){
+            __alertsState.items = [];
+            __alertsPopulateRegionFilter([]);
+            list.innerHTML = `
+                <div class="alert-item">
+                    <div class="alert-title">SIN ALERTAS ACTIVAS</div>
+                    <div class="alert-meta"><span>—</span><span>—</span></div>
+                </div>`;
+            return;
+        }
+
+        __alertsState.items = items;
+
+        // filtros
+        __alertsPopulateRegionFilter(items);
+
+        // render
+        __alertsRender();
+
+        // actualiza “nuevas” después del primer render
+        __alertsState.lastFingerprints = new Set(items.map(__alertsFingerprint));
+
+        // listeners (solo una vez)
+        const rSel = document.getElementById("alertsFilterRegion");
+        const tSel = document.getElementById("alertsFilterType");
+        if(rSel && !rSel.__bound){
+            rSel.addEventListener("change", __alertsRender);
+            rSel.__bound = true;
+        }
+        if(tSel && !tSel.__bound){
+            tSel.addEventListener("change", __alertsRender);
+            tSel.__bound = true;
+        }
+
+    }catch(e){
+        console.error(e);
+        meta.textContent = "ERROR: NO SE PUDIERON CARGAR ALERTAS (REVISE WORKER / CORS).";
+        try{ __setLastUpdateUTC(); }catch(e){}
+        list.innerHTML = `<div class="alert-item"><div class="alert-title">ERROR DE ALERTAS</div><div class="alert-meta"><span>${clean(e)}</span><span>—</span></div></div>`;
+    }
+}
+
+
+        // ARCHIVO CLIMÁTICO (AÑOS PASADOS)
+        let archiveData = null;
+        let archiveKey = null;
+
+        // MAPA INTERACTIVO (LEAFLET)
+        let __pickMap = null;
+        let __pickMarker = null;
+
+        function initPickMap(lat, lon) {
+            try {
+                const mapDiv = document.getElementById('pickMap');
+                if (!mapDiv) return;
+
+                // Evita reinicialización si ya existe
+                if (__pickMap) {
+                    __pickMap.setView([lat, lon], Math.max(__pickMap.getZoom(), 8));
+                    if (__pickMarker) __pickMarker.setLatLng([lat, lon]);
+                    return;
+                }
+
+        function buildWorkerUrlPath(path, params){
+            const base = (WORKER_BASE_URL || "").replace(/\/$/, "");
+            const url = base ? (base + path) : path;
+            const qs = new URLSearchParams(params || {});
+            return qs.toString() ? (url + "?" + qs.toString()) : url;
+        }
+
+        // === ALERTAS (SENAPRED via Worker /alerts) ===
+        async function fetchAlerts(){
+            const meta = document.getElementById('alertsMeta');
+            const list = document.getElementById('alertsList');
+            if(!meta || !list) return;
+
+            try{
+                meta.textContent = "ACTUALIZANDO ALERTAS...";
+                const url = buildWorkerUrlPath("/alerts", { region: "nacional", limit: "8" });
+                const r = await fetch(url, { headers: { "Accept": "application/json" } });
+                if(!r.ok) throw new Error("HTTP " + r.status);
+                const js = await r.json();
+
+                const items = Array.isArray(js.items) ? js.items : [];
+                const updated = js.updated_at ? new Date(js.updated_at) : null;
+                meta.textContent = `FUENTE: SENAPRED (WEB) | REGIÓN: ${js.region || "NACIONAL"} | ${items.length} ALERTAS | ACTUALIZADO: ${updated ? updated.toLocaleString('es-CL',{hour12:false}) : "N/D"}`;
+
+                if(!items.length){
+                    list.innerHTML = `<div class="alert-item"><div class="alert-title">SIN ALERTAS PUBLICADAS (O SIN ACCESO)</div><div class="alert-meta"><span>—</span><span>—</span></div></div>`;
+                    return;
+                }
+
+                const badgeClass = (t) => {
+                    const s = (t||"").toLowerCase();
+                    if(s.includes("roja")) return "red";
+                    if(s.includes("amarilla")) return "yellow";
+                    if(s.includes("temprana")) return "green";
+                    if(s.includes("alerta")) return "orange";
+                    return "";
+                };
+
+                list.innerHTML = items.map(it=>{
+                    const title = (it.title || "ALERTA").toString().toUpperCase();
+                    const date = it.date ? new Date(it.date).toLocaleDateString('es-CL') : "N/D";
+                    const time = it.date ? new Date(it.date).toLocaleTimeString('es-CL',{hour12:false}).slice(0,5) : "";
+                    const color = it.level || it.color || "";
+                    const cls = badgeClass(title + " " + color);
+                    const area = (it.area || "").toString().toUpperCase();
+                    const kind = (it.kind || "").toString().toUpperCase();
+                    const href = it.url || "";
+
+                    return `
+                    <div class="alert-item">
+                        <div class="alert-top">
+                            <div class="alert-title">${title}</div>
+                            <div class="alert-badges">
+                                ${color ? `<span class="badge ${cls}">${String(color).toUpperCase()}</span>` : ``}
+                                ${kind ? `<span class="badge">${kind}</span>` : ``}
+                            </div>
+                        </div>
+                        <div class="alert-meta">
+                            <span>${area || "—"}</span>
+                            <span>${date}${time?` ${time}`:""}</span>
+                        </div>
+                        ${href ? `<div class="alert-link" onclick="window.open('${href}','_blank')">VER DETALLE ↗</div>` : ``}
+                    </div>`;
+                }).join('');
+            }catch(e){
+                console.error(e);
+                meta.textContent = "ERROR: NO SE PUDIERON CARGAR ALERTAS (REVISE WORKER / CORS).";
+        try{ __setLastUpdateUTC(); }catch(e){}
+                list.innerHTML = `<div class="alert-item"><div class="alert-title">ERROR DE ALERTAS</div><div class="alert-meta"><span>${String(e)}</span><span>—</span></div></div>`;
+            }
+        }
+
+
+
+                __pickMap = L.map('pickMap', { zoomControl: true }).setView([lat, lon], 8);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 18,
+                    attribution: '&copy; OpenStreetMap'
+                }).addTo(__pickMap);
+
+                __pickMarker = L.marker([lat, lon]).addTo(__pickMap);
+
+                // Control "Consultar datos"
+                __dqMakeControl(__pickMap);
+                __dqUpdateCoordLabel();
+
+
+                __pickMap.on('click', (e) => {
+                    const newLat = e.latlng.lat;
+                    const newLon = e.latlng.lng;
+
+                    // Mueve marcador
+                    if (__pickMarker) __pickMarker.setLatLng(e.latlng);
+
+                    // Activa coords manuales y rellena GMS para copiar/pegar
+                    const chk = document.getElementById('useManualCoords');
+                    if (chk) chk.checked = true;
+
+                    const latD = document.getElementById('latDms');
+                    const lonD = document.getElementById('lonDms');
+                    if (latD) latD.value = decimalToDMS(newLat, 'lat');
+                    if (lonD) lonD.value = decimalToDMS(newLon, 'lon');
+
+                    // Ejecuta actualización
+                    __dqUpdateCoordLabel();
+                    executeSearch();
+                });
+            } catch (err) {
+                console.warn('MAPA: no se pudo inicializar', err);
+            }
+        }
+
+        /* === CONTROL MAPA: CONSULTAR DATOS (ARCHIVO CLIMÁTICO) === */
+        let __dqControl = null;
+
+        function __dqFmtDate(d){
+            if(!d) return "";
+            try { return new Date(d).toLocaleDateString('es-CL'); } catch { return d; }
+        }
+
+        function __dqYMD(d){
+            return d.toISOString().slice(0,10);
+        }
+
+        function __dqDefaultRange(){
+            const now = new Date();
+            const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const start = new Date(end.getFullYear()-10, end.getMonth(), end.getDate());
+            return {from: __dqYMD(start), to: __dqYMD(end)};
+        }
+
+        function __dqMakeControl(map){
+            if(__dqControl) return;
+
+            const C = L.Control.extend({
+                options: { position: 'topright' },
+                onAdd: function(){
+                    const div = L.DomUtil.create('div', 'dq-box');
+                    const dr = __dqDefaultRange();
+                    div.innerHTML = `
+                        <div style="font-weight:bold; margin-bottom:6px; background: var(--panel2); padding:6px 8px; border-bottom:1px solid var(--border);">
+                            CONSULTAR DATOS
+                        </div>
+                        <div style="display:grid; grid-template-columns: 1fr; gap:8px; padding:8px;">
+                            <div style="font-size:10px; color:#444;">
+                                COORD: <span id="dqCoordLbl" style="font-weight:bold;">--</span>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                                <div>
+                                    <div style="font-size:10px; margin-bottom:4px;">DESDE</div>
+                                    <input id="dqFrom" type="date" value="${dr.from}" style="width:100%;">
+                                </div>
+                                <div>
+                                    <div style="font-size:10px; margin-bottom:4px;">HASTA</div>
+                                    <input id="dqTo" type="date" value="${dr.to}" style="width:100%;">
+                                </div>
+                            </div>
+
+                            <div>
+                                <div style="font-size:10px; margin-bottom:4px;">ESCALA</div>
+                                <select id="dqAgg" style="width:100%;">
+                                    <option value="yearly" selected>AÑO</option>
+                                    <option value="monthly">MES</option>
+                                    <option value="daily">DÍA</option>
+                                    <option value="hourly">HORA</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <div style="font-size:10px; margin-bottom:4px;">VARIABLES</div>
+                                <div style="display:grid; grid-template-columns:1fr; gap:4px; font-size:10px;">
+                                    <label><input type="checkbox" id="dqV_temp" checked> TEMPERATURA (MAX)</label>
+                                    <label><input type="checkbox" id="dqV_precip" checked> PRECIPITACIÓN (SUMA)</label>
+                                    <label><input type="checkbox" id="dqV_hum"> HUMEDAD (MEDIA)</label>
+                                    <label><input type="checkbox" id="dqV_wind"> VIENTO (MAX)</label>
+                                    <label><input type="checkbox" id="dqV_press"> PRESIÓN (MEDIA)</label>
+                                    <label><input type="checkbox" id="dqV_cloud"> NUBOSIDAD (MEDIA)</label>
+                                </div>
+                            </div>
+
+                            <button id="dqRunBtn" style="width:100%; padding:10px; background: var(--panel); border:1px solid var(--text); font-weight:bold; cursor:pointer;">
+                                CONSULTAR DATOS
+                            </button>
+                            <div id="dqMsg" style="font-size:10px; color:#444; text-align:center;"></div>
+                        </div>
+                    `;
+                    L.DomEvent.disableClickPropagation(div);
+                    return div;
+                }
+            });
+
+            __dqControl = new C();
+            map.addControl(__dqControl);
+
+            // Hook botón
+            setTimeout(() => {
+                const btn = document.getElementById('dqRunBtn');
+                if(btn){
+                    btn.addEventListener('click', async () => {
+                        try { await runDataQuery(); } catch(e){ console.error(e); }
+                    });
+                }
+                __dqUpdateCoordLabel();
+            }, 0);
+        }
+
+        function __dqUpdateCoordLabel(){
+            const el = document.getElementById('dqCoordLbl');
+            if(!el) return;
+            const lat = lastLat ?? parseDMS(document.getElementById('latDms')?.value || '', 'lat') ?? -20.214;
+            const lon = lastLon ?? parseDMS(document.getElementById('lonDms')?.value || '', 'lon') ?? -70.152;
+            el.textContent = `${decimalToDMS(lat,'lat')}  ${decimalToDMS(lon,'lon')}`;
+        }
+
+        function __dqSelectedVars(){
+            const vars = [];
+            if(document.getElementById('dqV_temp')?.checked) vars.push('temp');
+            if(document.getElementById('dqV_precip')?.checked) vars.push('precip');
+            if(document.getElementById('dqV_hum')?.checked) vars.push('humidity');
+            if(document.getElementById('dqV_wind')?.checked) vars.push('wind');
+            if(document.getElementById('dqV_press')?.checked) vars.push('pressure');
+            if(document.getElementById('dqV_cloud')?.checked) vars.push('clouds');
+            return vars;
+        }
+
+        function __dqSetMsg(t){
+            const el = document.getElementById('dqMsg');
+            if(el) el.textContent = t || "";
+        }
+
+        function __dqAggKey(dateStr, agg){
+            if(agg === 'monthly') return dateStr.slice(0,7);
+            if(agg === 'yearly') return dateStr.slice(0,4);
+            return dateStr; // daily
+        }
+
+        function __dqAggSeries(dates, values, agg, mode){
+            // mode: 'mean' or 'sum'
+            const buckets = new Map();
+            for(let i=0;i<dates.length;i++){
+                const d = dates[i];
+                const v = values[i];
+                if(v===null || v===undefined || Number.isNaN(v)) continue;
+                const k = __dqAggKey(d, agg);
+                if(!buckets.has(k)) buckets.set(k, []);
+                buckets.get(k).push(v);
+            }
+            const keys = Array.from(buckets.keys()).sort();
+            const out = keys.map(k=>{
+                const arr = buckets.get(k);
+                if(mode==='sum'){
+                    const s = arr.reduce((a,b)=>a+b,0);
+                    return Math.round(s*10)/10;
+                }
+                const s = arr.reduce((a,b)=>a+b,0);
+                return Math.round((s/arr.length)*10)/10;
+            });
+            return {keys, out};
+        }
+
+        async function __dqFetchArchive(lat, lon, from, to){
+            // Pedimos diarios + hourly (para variables medias)
+            const base = "https://archive-api.open-meteo.com/v1/archive";
+            const dailyVars = [
+                "temperature_2m_max",
+                "precipitation_sum",
+                "wind_speed_10m_max"
+            ];
+            const hourlyVars = [
+                "relative_humidity_2m",
+                "pressure_msl",
+                "cloud_cover",
+                "temperature_2m",
+                "precipitation",
+                "wind_speed_10m"
+            ];
+            const url = `${base}?latitude=${lat}&longitude=${lon}&start_date=${from}&end_date=${to}`
+              + `&daily=${dailyVars.join(",")}`
+              + `&hourly=${hourlyVars.join(",")}`
+              + `&timezone=auto`;
+            const res = await fetch(url);
+            if(!res.ok) throw new Error("ARCHIVO: fallo API");
+            return await res.json();
+        }
+
+        function __dqDailyMeanFromHourly(js, field){
+            const dates = js.daily?.time || [];
+            const H = js.hourly || {};
+            const arr = H[field];
+            const out = new Array(dates.length).fill(null);
+            if(!arr || !Array.isArray(arr)) return out;
+            for(let d=0; d<dates.length; d++){
+                let sum=0,cnt=0;
+                const base = d*24;
+                for(let h=0; h<24; h++){
+                    const v = arr[base+h];
+                    if(v===null || v===undefined || Number.isNaN(v)) continue;
+                    sum += v; cnt++;
+                }
+                out[d] = cnt ? Math.round((sum/cnt)*10)/10 : null;
+            }
+            return out;
+        }
+
+        function __dqRenderTable(aggKeys, cols){
+            // cols: [{key, label, unit, values}]
+            const wrap = document.getElementById('dataQueryWrap');
+            const meta = document.getElementById('dataQueryMeta');
+            const tableDiv = document.getElementById('dataQueryTable');
+            if(!wrap || !meta || !tableDiv) return;
+
+            wrap.style.display = 'block';
+
+            const now = new Date();
+            meta.innerHTML = `DATOS CONSULTADOS EL ${now.toLocaleDateString('es-CL')} A LAS ${now.toLocaleTimeString('es-CL',{hour12:false})}`;
+
+            let html = `<table style="border-collapse:collapse; width:100%; min-width:720px; background:#fff;">
+                <thead>
+                  <tr>
+                    <th style="border:1px solid var(--border); padding:8px; background:var(--panel2); text-align:left;">TIEMPO</th>
+                    ${cols.map(c=>`<th style="border:1px solid var(--border); padding:8px; background:var(--panel2); text-align:left;">${c.label} ${c.unit?`(${c.unit})`:``}</th>`).join('')}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${aggKeys.map((k,ri)=>{
+                      return `<tr>
+                        <td style="border:1px solid var(--border); padding:8px; background:var(--panel);">${k}</td>
+                        ${cols.map(c=>{
+                            const v = c.values[ri];
+                            const vv = (v===null || v===undefined) ? "N/D" : v;
+                            return `<td style="border:1px solid var(--border); padding:8px;">${vv}</td>`;
+                        }).join('')}
+                      </tr>`;
+                  }).join('')}
+                </tbody>
+            </table>`;
+            tableDiv.innerHTML = html;
+
+            // Scroll a resultados (suave)
+            setTimeout(()=>{ wrap.scrollIntoView({behavior:'smooth', block:'start'}); }, 50);
+        }
+
+        async function runDataQuery(){
+            __dqSetMsg("CONSULTANDO...");
+            const agg = document.getElementById('dqAgg')?.value || 'yearly';
+            const from = document.getElementById('dqFrom')?.value;
+            const to = document.getElementById('dqTo')?.value;
+            const vars = __dqSelectedVars();
+
+            if(!from || !to){ __dqSetMsg("FECHAS INVÁLIDAS"); return; }
+            if(!vars.length){ __dqSetMsg("SELECCIONE AL MENOS 1 VARIABLE"); return; }
+
+            const lat = lastLat ?? parseDMS(document.getElementById('latDms')?.value || '', 'lat') ?? -20.214;
+            const lon = lastLon ?? parseDMS(document.getElementById('lonDms')?.value || '', 'lon') ?? -70.152;
+
+            try{
+                const js = await __dqFetchArchive(lat, lon, from, to);
+
+                // Base daily series
+                const dates = js.daily.time;
+
+                const cols = [];
+                let aggKeys = [];
+
+                function addCol(key, label, unit, values){
+                    // agrega/actualiza aggKeys
+                    if(!aggKeys.length){
+                        aggKeys = __dqAggSeries(dates, values, agg==='hourly'?'daily':agg, 'mean').keys;
+                    }
+                    cols.push({key, label, unit, values});
+                }
+
+                // Para hourly en este menú: mostramos 24h del día seleccionado (simple)
+                if(agg === 'hourly'){
+                    // Tomamos el primer día del rango como default
+                    const day = dates[0];
+                    const idx0 = js.hourly.time.indexOf(day+"T00:00");
+                    const labels = js.hourly.time.slice(idx0, idx0+24).map(t=>t.slice(11,16));
+                    aggKeys = labels;
+
+                    const H = js.hourly;
+
+                    for(const v of vars){
+                        let arr = [];
+                        let label="", unit="";
+                        if(v==='temp'){ arr = H.temperature_2m.slice(idx0, idx0+24); label="TEMPERATURA"; unit="°C"; }
+                        if(v==='precip'){ arr = H.precipitation.slice(idx0, idx0+24); label="PRECIPITACIÓN"; unit="MM/H"; }
+                        if(v==='humidity'){ arr = H.relative_humidity_2m.slice(idx0, idx0+24); label="HUMEDAD"; unit="%"; }
+                        if(v==='wind'){ arr = H.wind_speed_10m.slice(idx0, idx0+24); label="VIENTO"; unit="KM/H"; }
+                        if(v==='pressure'){ arr = H.pressure_msl.slice(idx0, idx0+24); label="PRESIÓN"; unit="HPA"; }
+                        if(v==='clouds'){ arr = H.cloud_cover.slice(idx0, idx0+24); label="NUBOSIDAD"; unit="%"; }
+                        cols.push({key:v, label, unit, values: arr.map(x=> (x===null||x===undefined)?null: Math.round(x*10)/10 )});
+                    }
+                    __dqRenderTable(aggKeys, cols);
+                    __dqSetMsg("LISTO");
+                    return;
+                }
+
+                // Daily helper series
+                const dailyTempMax = js.daily.temperature_2m_max;
+                const dailyPrecipSum = js.daily.precipitation_sum;
+                const dailyWindMax = js.daily.wind_speed_10m_max;
+
+                const dailyHumMean = __dqDailyMeanFromHourly(js, "relative_humidity_2m");
+                const dailyPressMean = __dqDailyMeanFromHourly(js, "pressure_msl");
+                const dailyCloudMean = __dqDailyMeanFromHourly(js, "cloud_cover");
+
+                for(const v of vars){
+                    if(v==='temp'){
+                        const ag = __dqAggSeries(dates, dailyTempMax, agg, 'mean');
+                        aggKeys = ag.keys;
+                        addCol(v, "TEMPERATURA", "°C", ag.out);
+                    }
+                    if(v==='precip'){
+                        const ag = __dqAggSeries(dates, dailyPrecipSum, agg, 'sum');
+                        if(!aggKeys.length) aggKeys = ag.keys;
+                        addCol(v, "PRECIPITACIÓN", "MM", ag.out);
+                    }
+                    if(v==='humidity'){
+                        const ag = __dqAggSeries(dates, dailyHumMean, agg, 'mean');
+                        if(!aggKeys.length) aggKeys = ag.keys;
+                        addCol(v, "HUMEDAD", "%", ag.out);
+                    }
+                    if(v==='wind'){
+                        const ag = __dqAggSeries(dates, dailyWindMax, agg, 'mean');
+                        if(!aggKeys.length) aggKeys = ag.keys;
+                        addCol(v, "VIENTO", "KM/H", ag.out);
+                    }
+                    if(v==='pressure'){
+                        const ag = __dqAggSeries(dates, dailyPressMean, agg, 'mean');
+                        if(!aggKeys.length) aggKeys = ag.keys;
+                        addCol(v, "PRESIÓN", "HPA", ag.out);
+                    }
+                    if(v==='clouds'){
+                        const ag = __dqAggSeries(dates, dailyCloudMean, agg, 'mean');
+                        if(!aggKeys.length) aggKeys = ag.keys;
+                        addCol(v, "NUBOSIDAD", "%", ag.out);
+                    }
+                }
+
+                __dqRenderTable(aggKeys, cols);
+                __dqSetMsg("LISTO");
+            }catch(e){
+                console.error(e);
+                __dqSetMsg("ERROR EN CONSULTA");
+                alert("No se pudo consultar archivo. Verifique conexión y rango de fechas.");
+            }
+        }
+
+
+        function enterSystem() {
+            const splash = document.getElementById('splashScreen');
+            splash.style.opacity = '0';
+            setTimeout(() => { splash.style.display = 'none'; }, 500);
+
+            // Inicializa mapa después de entrar (no bloquea el sistema si falla)
+            setTimeout(() => {
+                try {
+                    // Usa coordenadas actuales (si ya hay GMS rellenado) o Iquique por defecto
+                    const latDec = parseDMS(document.getElementById('latDms')?.value || '', 'lat');
+                    const lonDec = parseDMS(document.getElementById('lonDms')?.value || '', 'lon');
+                    const lat0 = (latDec !== null) ? latDec : -20.214;   // Iquique aprox
+                    const lon0 = (lonDec !== null) ? lonDec : -70.152;
+                    initPickMap(lat0, lon0);
+                } catch(e) {}
+            }, 300);
+        }
+
+        function printReport() {
+            const now = new Date();
+            document.getElementById('printDateLabel').innerText = `${now.toLocaleDateString('es-CL')} ${now.toLocaleTimeString('es-CL')}`;
+            window.print();
+        }
+
+        function updateClocks() {
+            const now = new Date();
+            document.getElementById('clockLocal').innerText = now.toLocaleTimeString('es-CL', { hour12: false });
+            const zuluH = now.getUTCHours().toString().padStart(2, '0');
+            const zuluM = now.getUTCMinutes().toString().padStart(2, '0');
+            const zuluS = now.getUTCSeconds().toString().padStart(2, '0');
+            document.getElementById('clockZulu').innerText = `${zuluH}:${zuluM}:${zuluS} Z`;
+        }
+        setInterval(updateClocks, 1000);
+        updateClocks();
+
+        
+
+        // === TEMA (CLARO / OSCURO) ===
+        (function initTheme(){
+            const sel = document.getElementById('themeMode');
+            if(!sel) return;
+
+            const saved = localStorage.getItem('themeMode');
+            if(saved === 'oscuro'){
+                document.body.classList.add('dark-mode');
+                sel.value = 'oscuro';
+            } else {
+                document.body.classList.remove('dark-mode');
+                sel.value = 'claro';
+            }
+
+            sel.addEventListener('change', () => {
+                if(sel.value === 'oscuro'){
+                    document.body.classList.add('dark-mode');
+                    localStorage.setItem('themeMode','oscuro');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    localStorage.setItem('themeMode','claro');
+                }
+            });
+            /* análisis se actualiza dentro de updateChart()/refreshArchiveAndChart() */
+        })();
+
+        // === ÚLTIMA ACTUALIZACIÓN (UTC) ===
+        function __setLastUpdateUTC(){
+            const el = document.getElementById('lastUpdateUTC');
+            if(!el) return;
+            const now = new Date();
+            const hh = String(now.getUTCHours()).padStart(2,'0');
+            const mm = String(now.getUTCMinutes()).padStart(2,'0');
+            el.textContent = `${hh}:${mm} UTC`;
+        }
+
+// alertas cada 15 min
+        setInterval(()=>{ try{ fetchAlerts(); }catch(e){} }, 15*60*1000);
+window.onload = async function() {
+  /* uiRange eliminado */
+ await executeSearch(); onTimeControlsChanged(); try{ __syncMenuVisibility(); }catch(e){}; try{ await fetchAlerts(); }catch(e){} };
+        document.getElementById('cityInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') executeSearch(); });
+
+        function parseDMS(input, kind /* 'lat' | 'lon' */) {
+            if (!input) return null;
+
+            const s = input.trim().toUpperCase()
+                .replace(/,/g, '.')
+                .replace(/[º°]/g, ' ')
+                .replace(/[’']/g, ' ')
+                .replace(/[“”"]/g, ' ')
+                .replace(/\s+/g, ' ');
+
+            const hemiMatch = s.match(/[NSEW]/);
+            const hemi = hemiMatch ? hemiMatch[0] : null;
+
+            const nums = s.replace(/[NSEW]/g, '').trim().split(' ').filter(Boolean);
+            if (nums.length === 0) return null;
+
+            const deg = parseFloat(nums[0]);
+            const min = nums.length >= 2 ? parseFloat(nums[1]) : 0;
+            const sec = nums.length >= 3 ? parseFloat(nums[2]) : 0;
+
+            if (![deg, min, sec].every(v => Number.isFinite(v))) return null;
+
+            let dec = Math.abs(deg) + (Math.abs(min) / 60) + (Math.abs(sec) / 3600);
+
+            const negBySign = deg < 0;
+            const negByHemi = hemi ? (hemi === 'S' || hemi === 'W') : false;
+            const negative = hemi ? negByHemi : negBySign;
+
+            dec = negative ? -dec : dec;
+
+            if (kind === 'lat' && (dec < -90 || dec > 90)) return null;
+            if (kind === 'lon' && (dec < -180 || dec > 180)) return null;
+
+            return dec;
+        }
+
+        function decimalToDMS(dec, kind /* 'lat' | 'lon' */) {
+            const hemi = kind === 'lat'
+                ? (dec < 0 ? 'S' : 'N')
+                : (dec < 0 ? 'W' : 'E');
+
+            const abs = Math.abs(dec);
+            const deg = Math.floor(abs);
+            const minFloat = (abs - deg) * 60;
+            const min = Math.floor(minFloat);
+            const sec = Math.round((minFloat - min) * 60);
+
+            return `${deg}°${String(min).padStart(2,'0')}'${String(sec).padStart(2,'0')}"${hemi}`;
+        }
+
+        function getAstroDataFromCoords(dateStr, lat, lon) {
+            const d = new Date(dateStr + "T12:00:00");
+            const times = SunCalc.getTimes(d, lat, lon);
+
+            const fmt = (dt) => {
+                if (!dt || isNaN(dt.getTime())) return "N/D";
+                const hh = String(dt.getHours()).padStart(2, "0");
+                const mm = String(dt.getMinutes()).padStart(2, "0");
+                return `${hh}:${mm}`;
+            };
+
+            return { c: fmt(times.dawn), t: fmt(times.dusk) };
+        }
+
+        async function executeSearch() {
+            const model = document.getElementById('modelSelect').value;
+            const statusMsg = document.getElementById('statusMsg');
+            const loadText = document.getElementById('loadingStatus');
+
+            statusMsg.innerText = "ACTUALIZANDO DATOS...";
+            statusMsg.style.color = "yellow";
+            if(loadText) loadText.innerText = "CONECTANDO SATÉLITE...";
+
+            try {
+                let latitude, longitude, name, country;
+
+                const manual = document.getElementById('useManualCoords').checked;
+
+                if (manual) {
+                    const latIn = document.getElementById('latDms').value;
+                    const lonIn = document.getElementById('lonDms').value;
+
+                    const latDec = parseDMS(latIn, 'lat');
+                    const lonDec = parseDMS(lonIn, 'lon');
+
+                    if (latDec === null || lonDec === null) {
+                        alert("Coordenadas GMS inválidas. Ej: 20°12'30\"S y 70°08'15\"W");
+                        return;
+                    }
+
+                    latitude = latDec;
+                    longitude = lonDec;
+                    // Etiqueta amigable si es el punto por defecto (Iquique)
+                    const cityTxt = (document.getElementById("cityInput")?.value || "").trim();
+                    if (!cityTxt && Math.abs(latitude + 20.214) < 0.02 && Math.abs(longitude + 70.152) < 0.02) {
+                        name = "IQUIQUE";
+                        country = "CHILE";
+                    } else {
+                        name = "COORDENADAS MANUALES";
+                        country = "—";
+                    }
+                } else {
+                    const city = document.getElementById('cityInput').value;
+                    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=es&format=json`;
+                    const geoRes = await fetch(geoUrl);
+                    const geoData = await geoRes.json();
+
+                    if (!geoData.results) { alert("Ciudad no encontrada. Pruebe formato: Ciudad, País"); return; }
+                    ({ latitude, longitude, name, country } = geoData.results[0]);
+
+                    // Auto-rellenar inputs GMS para copiar/pegar
+                    document.getElementById('latDms').value = decimalToDMS(latitude, 'lat');
+                    document.getElementById('lonDms').value = decimalToDMS(longitude, 'lon');
+                }
+
+                lastLat = latitude;
+                lastLon = longitude;
+
+                document.getElementById('windyEmbed').src = `https://embed.windy.com/embed2.html?lat=${latitude}&lon=${longitude}&detailLat=${latitude}&detailLon=${longitude}&width=650&height=450&zoom=10&level=surface&overlay=wind&product=ecmwf&menu=&message=&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=km%2Fh&metricTemp=%C2%B0C&radarRange=-1`;
+
+                // Sincroniza mapa de selección con la ubicación actual
+                initPickMap(latitude, longitude);
+
+                
+                const sourceSel = (document.getElementById('sourceSelect')?.value || 'auto').toLowerCase();
+
+                // Si eliges OPEN-METEO explícito, usamos la URL directa (rápido y sin depender del Worker).
+                // Para AUTO / METEOBLUE / PIRATE -> llamamos a tu Worker (que debe manejar el routing / llaves / normalización).
+                let res, usedModel, usedSource, usedUrl;
+
+                usedModel = document.getElementById('modelSelect').options[document.getElementById('modelSelect').selectedIndex].text;
+
+                if (sourceSel === "openmeteo") {
+                    usedSource = "OPEN-METEO (DIRECTO)";
+                    usedUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation,visibility,wind_speed_10m,wind_gusts_10m,uv_index,cloud_cover,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,uv_index_max,weather_code,snowfall_sum&hourly=temperature_2m,precipitation,cloud_cover,cloud_cover_mid,wind_speed_10m,wind_gusts_10m,pressure_msl,relative_humidity_2m,snowfall&past_days=7&forecast_days=11&timezone=auto&models=${model}`;
+                    res = await fetch(usedUrl);
+
+                    // Fallback a best_match si el modelo no existe en la ubicación
+                    if (!res.ok) {
+                        usedUrl = usedUrl.replace(`models=${model}`, `models=best_match`);
+                        res = await fetch(usedUrl);
+                        usedModel = "AUTO (RESPALDO)";
+                    }
+                } else {
+                    // Worker (AUTO/Meteoblue/Pirate)
+                    usedSource = (sourceSel === "auto") ? "AUTO (WORKER)" : sourceSel.toUpperCase() + " (WORKER)";
+                    usedUrl = buildWorkerUrl({
+                        lat: latitude,
+                        lon: longitude,
+                        source: sourceSel,   // auto | meteoblue | pirate | openmeteo (si tu worker lo soporta)
+                        model: model         // ecmwf_ifs04 | best_match | gfs_seamless (si tu worker lo soporta)
+                    });
+
+                    try{
+                        res = await fetch(usedUrl);
+                        // Si el Worker no tiene el endpoint o falla, caemos a Open-Meteo directo
+                        if(!res.ok) throw new Error("WORKER_HTTP_" + res.status);
+                        // Validación mínima: debe ser JSON
+                        const ct = (res.headers.get("content-type") || "").toLowerCase();
+                        if(!ct.includes("application/json")) throw new Error("WORKER_NOT_JSON");
+                    }catch(e){
+                        // Fallback robusto: Open-Meteo directo (para que la UI no quede sin datos)
+                        usedSource = "OPEN-METEO (FALLBACK)";
+                        usedUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,dew_point_2m,apparent_temperature,precipitation,visibility,wind_speed_10m,wind_gusts_10m,uv_index,cloud_cover,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,wind_speed_10m_max,uv_index_max,weather_code,snowfall_sum&hourly=temperature_2m,precipitation,cloud_cover,cloud_cover_mid,wind_speed_10m,wind_gusts_10m,pressure_msl,relative_humidity_2m,snowfall&past_days=7&forecast_days=11&timezone=auto&models=${model}`;
+                        res = await fetch(usedUrl);
+                        if (!res.ok) {
+                            usedUrl = usedUrl.replace(`models=${model}`, `models=best_match`);
+                            res = await fetch(usedUrl);
+                            usedModel = "AUTO (RESPALDO)";
+                        }
+                    }
+                }
+
+                if (!res.ok) throw new Error("Fallo API");
+
+                const data = await res.json();
+globalData = data;
+
+                renderHeader(name, country, usedModel, latitude, longitude);
+                renderCurrent(data, latitude, longitude);
+                renderTimeline(data, latitude, longitude);
+                await updateChart();
+                populateHourDaySelect();
+                renderPrintCharts(data);
+                generateTacticalSummary(data);
+                checkVolcanoes();
+
+                                try{ await fetchAlerts(); }catch(e){}
+
+statusMsg.innerText = "SISTEMA ACTIVO - DATOS RECIBIDOS";
+                statusMsg.style.color = "var(--text)";
+                if(loadText) loadText.innerText = "SISTEMA LISTO. HAGA CLICK EN ACCEDER.";
+
+            } catch (e) {
+                console.error(e);
+                statusMsg.innerText = "ERROR DE CONEXIÓN";
+                try{ console.warn("URL FALLIDA:", window.__lastDataUrl); }catch(e){}
+                statusMsg.style.color = "red";
+                if(loadText) loadText.innerText = "ERROR DE CONEXIÓN. REINTENTE.";
+            }
+        }
+
+        function generateTacticalSummary(data) {
+            const todayIdx = 7;
+            const cur = data.current;
+            const maxTemp = data.daily.temperature_2m_max[todayIdx];
+            const maxWind = data.daily.wind_speed_10m_max[todayIdx];
+            const uv = data.daily.uv_index_max[todayIdx];
+
+            let summary = [];
+
+            if (maxWind > 40) summary.push("⚠ ALERTA DE VIENTO: Ráfagas superan umbral seguro. Operaciones aéreas restringidas.");
+            else if (maxWind > 25) summary.push("PRECAUCIÓN: Vientos moderados. Afectación posible a drones ligeros.");
+            else summary.push("CONDICIÓN EÓLICA: Favorable para operaciones aéreas y terrestres.");
+
+            if (maxTemp > 30) summary.push("ALERTA TÉRMICA: Calor extremo. Riesgo de deshidratación. Hidratación obligatoria.");
+            else if (maxTemp < 5) summary.push("ALERTA TÉRMICA: Bajas temperaturas. Riesgo de hipotermia en exposición prolongada.");
+            else summary.push("CONDICIÓN TÉRMICA: Temperaturas operativas normales.");
+
+            if (cur.relative_humidity_2m > 90) summary.push("VISIBILIDAD: Reducida por alta humedad/niebla costera. Precaución en desplazamientos.");
+            else summary.push("VISIBILIDAD: Óptima. Baja probabilidad de obstrucción visual.");
+
+            if (uv > 8) summary.push("RADIACIÓN: Índice UV Extremo. Protección solar obligatoria para personal en terreno.");
+
+            document.getElementById('conclusionText').innerText = summary.join("\n");
+        }
+
+        function renderHeader(city, country, model, lat, lon) {
+            const latDms = decimalToDMS(lat, 'lat');
+            const lonDms = decimalToDMS(lon, 'lon');
+
+            document.getElementById('lblCity').innerText = `${city.toUpperCase()}, ${country.toUpperCase()}`;
+
+            // Coordenadas clickeables para copiar
+            const coordSpan = `<span id="coordCopy" style="color: var(--text); cursor:pointer; text-decoration:underline;" title="Click para copiar">${latDms}, ${lonDms} 📋</span>`;
+            document.getElementById('sourceInfo').innerHTML = `FUENTE: <span style="color: var(--text)">${(window.__lastSourceLabel||'OPEN-METEO')}</span> | MODELO: <span style="color: var(--text)">${model}</span> | COORD: ${coordSpan}`;
+
+            setTimeout(() => {
+                const el = document.getElementById('coordCopy');
+                if (el) {
+                    el.onclick = async () => {
+                        const txt = `${latDms}, ${lonDms}`;
+                        try {
+                            await navigator.clipboard.writeText(txt);
+                            el.innerHTML = `${latDms}, ${lonDms} ✅`;
+                            setTimeout(() => { el.innerHTML = `${latDms}, ${lonDms} 📋`; }, 800);
+                        } catch {
+                            alert("No se pudo copiar. Copia manualmente: " + txt);
+                        }
+                    };
+                }
+            }, 0);
+        }
+
+        function calculateWeatherText(code, cloudCover, humidity, isDay) {
+            if (code >= 51) return decodeWMO(code);
+            if (humidity >= 95 && code <= 48) return "BRUMA / NIEBLA";
+            if (code <= 3 && cloudCover < 50) return isDay ? "DESPEJADO (SOLEADO)" : "DESPEJADO";
+            if (code <= 3 && cloudCover < 85) return "PARCIALMENTE NUBLADO";
+            return decodeWMO(code);
+        }
+
+        function renderCurrent(data, lat, lon) {
+            const cur = data.current;
+            const todayIdx = 7;
+
+            const todayDate = data.daily.time[todayIdx];
+            const astroToday = getAstroDataFromCoords(todayDate, lat, lon);
+
+            document.getElementById('valCccm').innerText = astroToday.c;
+            document.getElementById('valTccv').innerText = astroToday.t;
+
+            let cloudBaseM = 0;
+            let cloudBaseFt = 0;
+            let cbText = "SIN TECHO";
+
+            if(cur.temperature_2m !== undefined && cur.dew_point_2m !== undefined) {
+                const spread = cur.temperature_2m - cur.dew_point_2m;
+                cloudBaseM = Math.round(spread * 125);
+                if (cloudBaseM < 0) cloudBaseM = 0;
+                cloudBaseFt = Math.round(cloudBaseM * 3.28084);
+
+                if (cur.cloud_cover < 20) {
+                    cbText = "ILIMITADO (CAVOK)";
+                    document.getElementById('valCloudBase').style.color = "var(--text)";
+                } else {
+                    cbText = `${cloudBaseM} M / ${cloudBaseFt} FT`;
+                    document.getElementById('valCloudBase').style.color = "#fff";
+                }
+            }
+            document.getElementById('valCloudBase').innerText = cbText;
+
+            let weatherDesc = calculateWeatherText(cur.weather_code, cur.cloud_cover, cur.relative_humidity_2m, cur.is_day);
+            currentStatusText = weatherDesc;
+            document.getElementById('valWeatherDesc').innerText = weatherDesc;
+
+            const val = (id, v, u) => document.getElementById(id).innerText = (v !== undefined) ? v + u : "--";
+            val('valTemp', Math.round(cur.temperature_2m), "°");
+            val('valApparent', Math.round(cur.apparent_temperature), "°");
+            val('valHum', cur.relative_humidity_2m, "%");
+            val('valWind', cur.wind_speed_10m, " KM/H");
+            val('valVis', (cur.visibility/1000).toFixed(1), " KM");
+            val('valGust', cur.wind_gusts_10m, " KM/H");
+            val('valUv', cur.uv_index, "");
+        }
+
+        function safeVal(v) { return (v !== undefined && v !== null) ? Math.round(v) : '-'; }
+
+        function renderTimeline(data, lat, lon) {
+            const container = document.getElementById('timelineBox');
+            container.innerHTML = "";
+            const daily = data.daily;
+            const hourly = data.hourly;
+
+            daily.time.forEach((t, i) => {
+                let type = "past";
+                let statusText = "HISTORIAL";
+                if(i === 7) { type = "today"; statusText = "ESTADO ACTUAL"; }
+                if(i > 7) { type = "future"; statusText = "DATO PROYECTADO"; }
+
+                const date = new Date(t + "T12:00");
+                const dayStr = date.toLocaleDateString('es-CL', {weekday:'short', day:'2-digit'});
+                const dateNum = t.slice(8,10) + "-" + t.slice(5,7);
+                const moon = getMoonPhase(date);
+
+                const astroDay = getAstroDataFromCoords(t, lat, lon);
+
+                const startHour = i * 24;
+                let maxIccm = 0, maxIccmTime = "00:00";
+                let maxTccv = 0, maxTccvTime = "00:00";
+                let minWind = 999;
+                let humMin = 100, humMax = 0, cloudSum = 0, count = 0;
+
+                if(hourly && hourly.cloud_cover) {
+                    for(let h=0; h<24; h++) {
+                        const idx = startHour + h;
+                        if(hourly.time && !hourly.time[idx]) break;
+
+                        if(hourly.relative_humidity_2m && hourly.relative_humidity_2m[idx] !== undefined) {
+                            let valH = hourly.relative_humidity_2m[idx];
+                            if(valH < humMin) humMin = valH;
+                            if(valH > humMax) humMax = valH;
+                            cloudSum += hourly.cloud_cover[idx]; count++;
+                        }
+                        if(hourly.cloud_cover_mid && hourly.cloud_cover_mid[idx] > maxIccm) { maxIccm = hourly.cloud_cover_mid[idx]; maxIccmTime = (h<10?"0"+h:h)+":00"; }
+                        if(hourly.cloud_cover && hourly.cloud_cover[idx] > maxTccv) { maxTccv = hourly.cloud_cover[idx]; maxTccvTime = (h<10?"0"+h:h)+":00"; }
+                        if(hourly.wind_speed_10m && hourly.wind_speed_10m[idx] < minWind) { minWind = hourly.wind_speed_10m[idx]; }
+                    }
+                }
+                if(minWind === 999) minWind = "-";
+                if(humMin === 100) humMin = 0;
+
+                let weatherText = "";
+                if(i === 7) {
+                    weatherText = currentStatusText;
+                } else {
+                    let dailyCloudAvg = count > 0 ? (cloudSum / count) : 50;
+                    weatherText = calculateWeatherText(daily.weather_code[i], dailyCloudAvg, humMax, 1);
+                }
+
+                const div = document.createElement('div');
+                div.className = `day-card ${type}`;
+                div.innerHTML = `
+                    <div class="t-date">${dayStr}</div>
+                    <div style="text-align:center;color:var(--muted);font-size:0.9em;border-bottom:1px solid var(--border);margin-bottom:5px;">${dateNum}</div>
+                    <div class="t-weather-row" style="color:${weatherText.includes('SOLEADO')||weatherText.includes('DESPEJADO')?'var(--text)':'#fff'}">${weatherText}</div>
+                    <div class="card-row"><span>T° MAX/MIN:</span> <span>${safeVal(daily.temperature_2m_max[i])}° / ${safeVal(daily.temperature_2m_min[i])}°</span></div>
+                    <div class="card-row"><span>SENS MAX/MIN:</span> <span>${safeVal(daily.apparent_temperature_max[i])}° / ${safeVal(daily.apparent_temperature_min[i])}°</span></div>
+                    <div class="card-row"><span>HUMEDAD:</span> <span style="color:#3399ff; font-size:0.9em">${humMin}% - ${humMax}%</span></div>
+                    <div class="card-row"><span>VIENTO MAX:</span> <span style="color:var(--orange)">${safeVal(daily.wind_speed_10m_max[i])} KM/H</span></div>
+                    <div class="card-row"><span>VIENTO MIN:</span> <span>${minWind} KM/H</span></div>
+                    <div class="card-row"><span>UV MAX:</span> <span style="color:yellow">${safeVal(daily.uv_index_max[i])}</span></div>
+
+                    <div style="border-top:1px dashed var(--border); margin:4px 0"></div>
+
+                    <div class="card-row"><span>ICCM <span class="peak-time">(${maxIccmTime})</span>:</span> <span>${maxIccm}%</span></div>
+                    <div class="card-row"><span>TCCV <span class="peak-time">(${maxTccvTime})</span>:</span> <span>${maxTccv}%</span></div>
+
+                    <div class="card-row"><span>CCCM:</span> <span style="color:var(--cyan)">${astroDay.c}</span></div>
+                    <div class="card-row"><span>TCCV:</span> <span style="color:var(--orange)">${astroDay.t}</span></div>
+
+                    <div style="border-top:1px dashed var(--border); margin:4px 0"></div>
+
+                    <div class="card-row"><span>FASE:</span> <span style="font-size:0.8em">${moon.phase}</span></div>
+                    <div class="card-row"><span>ILUMINACIÓN:</span> <span>${moon.illum}%</span></div>
+
+                    <div class="op-status">${statusText}</div>
+                `;
+                container.appendChild(div);
+                if(i === 7) setTimeout(() => div.scrollIntoView({ inline: "center", behavior: "smooth" }), 500);
+            });
+        }
+
+        function decodeWMO(code) {
+            switch(code) {
+                case 0: return "DESPEJADO";
+                case 1: return "MAYORMENTE DESPEJADO";
+                case 2: return "NUBOSIDAD PARCIAL";
+                case 3: return "NUBLADO";
+                case 45: return "NIEBLA";
+                case 48: return "NIEBLA ESCARCHADA";
+                case 51: return "LLOVIZNA LIGERA";
+                case 53: return "LLOVIZNA MODERADA";
+                case 55: return "LLOVIZNA DENSA";
+                case 61: return "LLUVIA LIGERA";
+                case 63: return "LLUVIA MODERADA";
+                case 65: return "LLUVIA FUERTE";
+                case 71: return "NEVADA LIGERA";
+                case 73: return "NEVADA MODERADA";
+                case 75: return "NEVADA FUERTE";
+                case 80: return "CHUBASCOS LIGEROS";
+                case 81: return "CHUBASCOS MODERADOS";
+                case 82: return "CHUBASCOS VIOLENTOS";
+                case 95: return "TORMENTA ELÉCTRICA";
+                case 96: return "TORMENTA C/ GRANIZO";
+                case 99: return "TORMENTA SEVERA";
+                default: return "SIN DATOS";
+            }
+        }
+
+        function getMoonPhase(date) {
+            const lp = 2551443;
+            const new_moon = new Date(1970, 0, 7, 20, 35, 0);
+            const phaseSec = ((date.getTime() - new_moon.getTime()) / 1000) % lp;
+            const days = Math.floor(phaseSec / (24 * 3600));
+            const percent = Math.round((phaseSec / lp) * 100);
+            let name = "NUEVA";
+            if(days < 2) name = "NUEVA"; else if(days < 7) name = "CRECIENTE"; else if(days === 7) name = "CUARTO CREC.";
+            else if(days < 14) name = "GIBOSA CREC."; else if(days === 14) name = "LLENA"; else if(days < 21) name = "GIBOSA MENG.";
+            else if(days === 21) name = "CUARTO MENG."; else name = "MENGUANTE";
+            return { phase: name, illum: percent };
+        }
+
+        
+        /* === CONTROLES DE GRÁFICO (TIEMPO / ARCHIVO) === */
+
+        /* === UI PRO (ESCALA: HORA/DÍA/MES/AÑO) - SIN CAMBIAR LÓGICA INTERNA === */
+        function __syncChartMenu() {
+            const uiScale = 'day';
+            const uiRange = 'custom';
+            const uiSmooth = document.getElementById('uiSmooth')?.value || 'none';
+
+            // Mapea UI -> controles internos existentes
+            const timeMode = document.getElementById('timeMode');
+            const rangeMode = document.getElementById('rangeMode');
+            const smoothMode = document.getElementById('smoothMode');
+
+            if (smoothMode) smoothMode.value = uiSmooth;
+
+            // Escala
+            if (uiScale === 'hour') {
+                if (timeMode) timeMode.value = 'hourly';
+                if (rangeMode) rangeMode.value = 'all_loaded';
+            } else {
+                if (timeMode) timeMode.value = 'daily';
+
+                // Rango (diario / archivo)
+                if (uiRange === 'archive') {
+                    if (rangeMode) rangeMode.value = 'archive_custom';
+                } else if (uiRange === 'today10') {
+                    if (rangeMode) rangeMode.value = 'today_future10';
+                } else if (uiRange === 'custom') {
+                    if (rangeMode) rangeMode.value = 'archive_custom';
+                    const agg = document.getElementById('archAgg');
+                    if (agg) agg.value = 'daily';
+                } else if (uiRange === 'last30') {
+                    // No existe directo: usamos ARCHIVO 30 días como fallback robusto
+                    if (rangeMode) rangeMode.value = 'archive_custom';
+                    // 30 días atrás -> hoy
+                    const now = new Date();
+                    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                    const start = new Date(end.getTime() - 30*24*3600*1000);
+                    const uiF = document.getElementById('uiArchFrom'); const uiT = document.getElementById('uiArchTo');
+                    const f = document.getElementById('archFrom'); const t = document.getElementById('archTo');
+                    const yyyy = (d)=>d.toISOString().slice(0,10);
+                    if (uiF) uiF.value = yyyy(start);
+                    if (uiT) uiT.value = yyyy(end);
+                    if (f) f.value = yyyy(start);
+                    if (t) t.value = yyyy(end);
+                    const agg = document.getElementById('archAgg');
+                    if (agg) agg.value = 'daily';
+                } else {
+                    if (rangeMode) rangeMode.value = 'past7_today';
+                }
+
+                // Agregación Mes/Año usando archivo (para análisis climático)
+                const agg = document.getElementById('archAgg');
+                if (uiScale === 'month') {
+                    if (rangeMode) rangeMode.value = 'archive_custom';
+                    if (agg) agg.value = 'monthly';
+                } else if (uiScale === 'year') {
+                    if (rangeMode) rangeMode.value = 'archive_custom';
+                    if (agg) agg.value = 'yearly';
+                } else {
+                    // día: mantener daily salvo que sea archivo
+                    if (agg && (uiRange !== 'archive' && uiRange !== 'last30')) agg.value = 'daily';
+                }
+            }
+
+            // Sincroniza subcontroles
+            onTimeControlsChanged();
+
+            // Sincroniza controles horario
+            const uiHourDay = document.getElementById('uiHourDay');
+            const uiHourWindow = document.getElementById('uiHourWindow');
+            const hourDay = document.getElementById('hourDay');
+            const hourWindow = document.getElementById('hourWindow');
+            if (uiHourDay && hourDay) hourDay.value = uiHourDay.value || hourDay.value;
+            if (uiHourWindow && hourWindow) hourWindow.value = uiHourWindow.value || hourWindow.value;
+
+            // Sincroniza archivo
+            const uiAF = document.getElementById('uiArchFrom');
+            const uiAT = document.getElementById('uiArchTo');
+            const af = document.getElementById('archFrom');
+            const at = document.getElementById('archTo');
+            if (uiAF && af && uiAF.value) af.value = uiAF.value;
+            if (uiAT && at && uiAT.value) at.value = uiAT.value;
+
+            // Actualiza gráfico
+            updateChart();
+        }
+
+        function __syncMenuVisibility() {
+            const ar = document.getElementById('uiArchiveRow');
+            if (ar) ar.style.display = 'flex';
+        }
+
+        function onTimeControlsChanged() {
+            const timeMode = document.getElementById('timeMode').value;
+            const rangeMode = document.getElementById('rangeMode').value;
+
+            const hourlyBox = document.getElementById('hourlyControls');
+            const archiveBox = document.getElementById('archiveControls');
+
+            hourlyBox.classList.remove('show');
+            archiveBox.classList.remove('show');
+
+            if (timeMode === 'hourly') {
+                hourlyBox.classList.add('show');
+                // archivo no aplica en hourly (por costo); se mantiene daily
+                document.getElementById('rangeMode').value = 'all_loaded';
+            } else {
+                // daily
+                if (rangeMode === 'archive_custom') archiveBox.classList.add('show');
+            }
+
+            // Asegura valores por defecto de fechas archivo (últimos 5 años)
+            if (document.getElementById('rangeMode').value === 'archive_custom') {
+                ensureArchiveDatesDefaults();
+            }
+
+            populateHourDaySelect();
+            updateChart();
+
+            try{ __syncMenuVisibility(); }catch(e){}
+        }
+
+        function ensureArchiveDatesDefaults() {
+            const fromEl = document.getElementById('archFrom');
+            const toEl = document.getElementById('archTo');
+            if (!fromEl.value || !toEl.value) {
+                const now = new Date();
+                const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const start = new Date(now.getFullYear() - 5, now.getMonth(), now.getDate());
+                fromEl.value = start.toISOString().slice(0,10);
+                toEl.value = end.toISOString().slice(0,10);
+            }
+        }
+
+        function populateHourDaySelect() {
+            if (!globalData || !globalData.daily || !globalData.daily.time) return;
+            const daySel = document.getElementById('hourDay');
+            if (!daySel) return;
+            const cur = daySel.value;
+            daySel.innerHTML = "";
+            globalData.daily.time.forEach((d, i) => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                daySel.appendChild(opt);
+            });
+            // por defecto HOY (índice 7) si existe
+            if (!cur) {
+                daySel.value = globalData.daily.time[Math.min(7, globalData.daily.time.length-1)];
+            } else {
+                daySel.value = cur;
+            }
+        }
+
+            // UI PRO (menú inferior)
+            const uiSel = document.getElementById('uiHourDay');
+            if (uiSel) {
+                const cur2 = uiSel.value;
+                uiSel.innerHTML = daySel.innerHTML;
+                uiSel.value = cur2 || daySel.value;
+            }
+
+
+        
+        /* === ANALISIS PLEGABLE (METRICAS RAPIDAS, SIN BLOQUEAR) === */
+        (function initAnalysisToggle(){
+            const btn = document.getElementById('btnToggleAnalysis');
+            const body = document.getElementById('analysisBody');
+            if(!btn || !body) return;
+            btn.addEventListener('click', ()=>{
+                const open = body.style.display === 'block';
+                body.style.display = open ? 'none' : 'block';
+                btn.textContent = open ? 'VER ANÁLISIS' : 'OCULTAR ANÁLISIS';
+            });
+        })();
+
+        function __isFiniteNumber(v){
+            return v !== null && v !== undefined && typeof v === 'number' && Number.isFinite(v);
+        }
+
+        function __calcStats(series){
+            const vals = [];
+            for(const v of series || []){
+                if(__isFiniteNumber(v)) vals.push(v);
+            }
+            const n = vals.length;
+            if(!n) return { n:0, mean:null, min:null, max:null, std:null, last:null };
+
+            let sum = 0;
+            let min = vals[0], max = vals[0];
+            for(const v of vals){
+                sum += v;
+                if(v < min) min = v;
+                if(v > max) max = v;
+            }
+            const mean = sum / n;
+
+            // std (sample)
+            let s2 = 0;
+            for(const v of vals){
+                const d = v - mean;
+                s2 += d*d;
+            }
+            const std = (n > 1) ? Math.sqrt(s2 / (n - 1)) : 0;
+
+            // last finite
+            let last = null;
+            for(let i=series.length-1; i>=0; i--){
+                if(__isFiniteNumber(series[i])) { last = series[i]; break; }
+            }
+
+            return { n, mean, min, max, std, last };
+        }
+
+        function __calcTrend(series){
+            // tendencia por regresión lineal (índice vs valor), robusta y barata
+            const xs = [];
+            const ys = [];
+            for(let i=0;i<(series||[]).length;i++){
+                const v = series[i];
+                if(__isFiniteNumber(v)){
+                    xs.push(i);
+                    ys.push(v);
+                }
+            }
+            const n = ys.length;
+            if(n < 3) return { label:"N/D", slope:0 };
+
+            let sx=0, sy=0, sxx=0, sxy=0;
+            for(let i=0;i<n;i++){
+                const x = xs[i], y = ys[i];
+                sx += x; sy += y; sxx += x*x; sxy += x*y;
+            }
+            const denom = (n*sxx - sx*sx);
+            const slope = denom ? ((n*sxy - sx*sy) / denom) : 0;
+
+            // umbral relativo
+            const st = __calcStats(series);
+            const std = st.std || 0;
+            const thr = (std > 0) ? (0.05 * std) : 0.02; // fallback
+            if(Math.abs(slope) < thr) return { label:"ESTABLE", slope };
+            return { label: slope > 0 ? "CRECIENTE" : "DESCENDENTE", slope };
+        }
+
+        function __fmtNum(v){
+            if(v === null || v === undefined || !Number.isFinite(v)) return "N/D";
+            const abs = Math.abs(v);
+            const dec = abs >= 100 ? 0 : (abs >= 10 ? 1 : 2);
+            return (Math.round(v * (10**dec)) / (10**dec)).toString();
+        }
+
+        function __setAnalysisRow(grid, k, v){
+            const div = document.createElement('div');
+            div.className = 'analysis-row';
+            div.innerHTML = `<span>${k}</span><span>${v}</span>`;
+            grid.appendChild(div);
+        }
+
+        function __pct(values, p){
+    const arr = [];
+    for(const v of values || []){
+        if(__isFiniteNumber(v)) arr.push(v);
+    }
+    if(!arr.length) return null;
+    arr.sort((a,b)=>a-b);
+    const idx = (arr.length - 1) * p;
+    const lo = Math.floor(idx);
+    const hi = Math.ceil(idx);
+    if(lo === hi) return arr[lo];
+    const w = idx - lo;
+    return arr[lo]*(1-w) + arr[hi]*w;
+}
+
+function __sum(values){
+    let s = 0;
+    let has = false;
+    for(const v of values || []){
+        if(__isFiniteNumber(v)){ s += v; has = true; }
+    }
+    return has ? s : null;
+}
+
+function __countIf(values, fn){
+    let c = 0;
+    for(const v of values || []){
+        if(__isFiniteNumber(v) && fn(v)) c++;
+    }
+    return c;
+}
+
+function __updateAnalysisPanel(variableKey, rawLabels, rawSeries, yLabelText){
+    const grid = document.getElementById('analysisGrid');
+    if(!grid) return;
+
+    // limpia
+    grid.innerHTML = "";
+
+    const labels = Array.isArray(rawLabels) ? rawLabels : [];
+    const series = Array.isArray(rawSeries) ? rawSeries : [];
+
+    // === Helpers universales (livianos) ===
+    function __monthKey(lbl){
+        if(!lbl || typeof lbl !== "string") return null;
+        // YYYY-MM-DD o YYYY-MM o YYYY-MM-DDTHH:MM
+        const m = lbl.match(/^(\d{4})-(\d{2})/);
+        return m ? (m[1] + "-" + m[2]) : null;
+    }
+    function __hourOf(lbl){
+        if(!lbl || typeof lbl !== "string") return null;
+        const m = lbl.match(/T(\d{2}):(\d{2})/);
+        return m ? parseInt(m[1],10) : null;
+    }
+    function __maxRunLen(pred){
+        let best = 0, cur = 0;
+        for(const v of series){
+            if(__isFiniteNumber(v) && pred(v)){ cur++; if(cur>best) best=cur; }
+            else { cur = 0; }
+        }
+        return best;
+    }
+    function __topShareSum(){
+        // % del total explicado por el 10% de días más altos (para variables acumulables)
+        const vals = [];
+        for(const v of series){ if(__isFiniteNumber(v) && v>0) vals.push(v); }
+        if(vals.length < 5) return null;
+        vals.sort((a,b)=>b-a);
+        const total = vals.reduce((a,b)=>a+b,0);
+        if(!total) return null;
+        const k = Math.max(1, Math.ceil(vals.length * 0.10));
+        const top = vals.slice(0,k).reduce((a,b)=>a+b,0);
+        return (top/total)*100;
+    }
+    function __topMonth(metric /* 'sum'|'mean' */){
+        const buckets = new Map(); // key -> [sum,count]
+        for(let i=0;i<labels.length;i++){
+            const mk = __monthKey(labels[i]);
+            const v = series[i];
+            if(!mk || !__isFiniteNumber(v)) continue;
+            if(!buckets.has(mk)) buckets.set(mk, [0,0]);
+            const b = buckets.get(mk);
+            b[0] += v;
+            b[1] += 1;
+        }
+        let bestKey = null;
+        let bestVal = -Infinity;
+        for(const [k,[s,c]] of buckets.entries()){
+            const val = metric === 'sum' ? s : (c ? (s/c) : -Infinity);
+            if(val > bestVal){
+                bestVal = val;
+                bestKey = k;
+            }
+        }
+        return bestKey ? { key: bestKey, val: bestVal } : null;
+    }
+    function __hourPeak(){
+        // devuelve hora (0-23) con promedio más alto
+        const buckets = new Map(); // hour -> [sum,count]
+        for(let i=0;i<labels.length;i++){
+            const h = __hourOf(labels[i]);
+            const v = series[i];
+            if(h===null || !__isFiniteNumber(v)) continue;
+            if(!buckets.has(h)) buckets.set(h, [0,0]);
+            const b = buckets.get(h);
+            b[0] += v;
+            b[1] += 1;
+        }
+        let bestH = null, best = -Infinity;
+        for(const [h,[s,c]] of buckets.entries()){
+            if(!c) continue;
+            const mean = s/c;
+            if(mean > best){
+                best = mean;
+                bestH = h;
+            }
+        }
+        return (bestH===null) ? null : { hour: bestH, mean: best };
+    }
+
+    // === Estadística base ===
+    const st = __calcStats(series);
+    const tr = __calcTrend(series);
+    const p90 = __pct(series, 0.90);
+    const p95 = __pct(series, 0.95);
+    const p99 = __pct(series, 0.99);
+    const p10 = __pct(series, 0.10);
+
+    const nAll = series.length || 0;
+    const nValid = st.n || 0;
+    const missingPct = nAll ? Math.round(((nAll - nValid)/nAll)*100) : 0;
+
+    // periodo
+    let period = "N/D";
+    if(labels && labels.length){
+        period = `${labels[0]} → ${labels[labels.length-1]}`;
+    }
+
+    // === Nota breve (según variable) ===
+    const note = document.getElementById('analysisNote');
+    const key = (variableKey || "").toLowerCase();
+    const noteTextByVar = {
+        precip: "PRECIPITACIÓN: ACUMULADO, FRECUENCIA, CONCENTRACIÓN Y EXTREMOS (P95/P99) EN EL RANGO SELECCIONADO.",
+        wind: "VIENTO: UMBRALES OPERATIVOS, P90 Y EXTREMOS (P95/P99) PARA DEFINIR DÍAS 'MALOS' ESPERABLES.",
+        temp: "TEMPERATURA: DÍAS EXTREMOS SEGÚN PERCENTILES (P95/P99) Y PERSISTENCIA (RACHAS).",
+        snow: "NIEVE: ACUMULADO, FRECUENCIA, CONCENTRACIÓN Y EXTREMOS (P95/P99).",
+        humidity: "HUMEDAD: FRECUENCIA DE HUMEDAD ALTA, P90 Y EXTREMOS (P95/P99) PARA RIESGO DE BRUMA.",
+        pressure: "PRESIÓN: P10 (BAJA), EXTREMOS (P95/P99) Y PERSISTENCIA DE EVENTOS.",
+        clouds: "NUBOSIDAD: FRECUENCIA DE DÍAS MUY NUBLADOS, P90 Y EXTREMOS (P95/P99)."
+    };
+    if(note){
+        note.textContent = noteTextByVar[key] || "RESUMEN DEL RANGO SELECCIONADO: ESTADÍSTICA, EXTREMOS (PERCENTILES), CONCENTRACIÓN Y PERSISTENCIA.";
+    }
+
+    // === Encabezado universal ===
+    __setAnalysisRow(grid, "PERIODO", period);
+    __setAnalysisRow(grid, "MUESTRAS", `${nValid}/${nAll} (${missingPct}% FALTANTE)`);
+
+    // === Métricas universales (neutras) ===
+    const mean = st.mean;
+    const std  = st.std;
+    const cv = (mean && __isFiniteNumber(mean) && mean !== 0 && __isFiniteNumber(std)) ? (Math.abs(std/mean)) : null;
+
+    __setAnalysisRow(grid, "P90", (p90===null) ? "N/D" : __fmtNum(p90));
+    __setAnalysisRow(grid, "P95", (p95===null) ? "N/D" : __fmtNum(p95));
+    __setAnalysisRow(grid, "P99", (p99===null) ? "N/D" : __fmtNum(p99));
+    __setAnalysisRow(grid, "MÍNIMO", __fmtNum(st.min));
+    __setAnalysisRow(grid, "MÁXIMO", __fmtNum(st.max));
+    __setAnalysisRow(grid, "TENDENCIA", tr.label);
+    __setAnalysisRow(grid, "VARIABILIDAD (CV)", (cv===null || !Number.isFinite(cv)) ? "N/D" : __fmtNum(cv));
+
+    // extremos dinámicos
+    const nP95 = (p95===null) ? null : __countIf(series, v => v > p95);
+    const nP99 = (p99===null) ? null : __countIf(series, v => v > p99);
+    if(nP95 !== null) __setAnalysisRow(grid, "DÍAS EXTREMOS (>P95)", String(nP95));
+    if(nP99 !== null) __setAnalysisRow(grid, "DÍAS SEVEROS (>P99)", String(nP99));
+
+    // persistencia (rachas)
+    if(__isFiniteNumber(mean)){
+        __setAnalysisRow(grid, "RACHA > PROMEDIO (MAX)", String(__maxRunLen(v => v > mean)));
+    }
+    if(p90 !== null){
+        __setAnalysisRow(grid, "RACHA > P90 (MAX)", String(__maxRunLen(v => v > p90)));
+    }
+
+    // estacionalidad (mes dominante)
+    const monthMetric = (key === "precip" || key === "snow") ? "sum" : "mean";
+    const topM = __topMonth(monthMetric);
+    if(topM){
+        const unit = (key === "precip") ? " MM" : (key === "snow" ? " CM" : "");
+    // __setAnalysisRow(grid, "MES DOMINANTE", `${topM.key} (${__fmtNum(topM.val)}${unit})`);
+
+    }
+
+    // análisis horario si aplica
+    const hp = __hourPeak();
+    if(hp){
+        const hh = String(hp.hour).padStart(2,'0');
+        __setAnalysisRow(grid, "HORA PICO", `${hh}:00`);
+    }
+
+    // concentración (solo si tiene sentido, evita ruido)
+    const share10 = __topShareSum();
+    if(share10 !== null){
+        __setAnalysisRow(grid, "CONCENTRACIÓN (TOP 10%)", `${Math.round(share10)}% DEL TOTAL`);
+    }
+
+    // === Etiqueta de RÉGIMEN (complementa TENDENCIA, sin alterar cálculos) ===
+    // Objetivo: evitar la confusión "TENDENCIA: ESTABLE" cuando lo dominante es
+    // la estacionalidad/variabilidad/concentración. Reglas livianas y universales.
+    (function(){
+        const tags = [];
+
+        // Variabilidad (CV)
+        if(Number.isFinite(cv)){
+            if(cv >= 2) tags.push("Variabilidad alta");
+            else if(cv >= 1.2) tags.push("Variabilidad moderada");
+            else tags.push("Variabilidad baja");
+        }
+
+        // Concentración (Top 10%) — solo si se calculó
+        if(share10 !== null && Number.isFinite(share10)){
+            if(share10 >= 30) tags.push("Concentración alta");
+            else if(share10 >= 20) tags.push("Concentración moderada");
+            else tags.push("Concentración baja");
+        }
+
+        // Estacionalidad
+        // - Para variables acumulables (precip/nieve): % del total en el mes dominante
+        // - Para el resto: comparación del mes dominante (media mensual) vs media global
+        let seasonTag = null;
+        if(topM){
+            if(key === "precip" || key === "snow"){
+                const totalPos = __sum(series);
+                if(totalPos !== null && totalPos > 0){
+                    const monthShare = (topM.val / totalPos) * 100;
+                    if(monthShare >= 25) seasonTag = "Estacional fuerte";
+                    else if(monthShare >= 15) seasonTag = "Estacional moderada";
+                    else seasonTag = "Estacional débil";
+                }
+            } else if(__isFiniteNumber(mean) && __isFiniteNumber(std) && std > 0){
+                const zMonth = (topM.val - mean) / std;
+                if(zMonth >= 1.0) seasonTag = "Estacional fuerte";
+                else if(zMonth >= 0.5) seasonTag = "Estacional moderada";
+                else seasonTag = "Estacional débil";
+            }
+        }
+        if(seasonTag) tags.unshift(seasonTag);
+
+        if(tags.length){
+            __setAnalysisRow(grid, "RÉGIMEN", tags.join(" · "));
+        }
+    })();
+
+    // === Inteligencia específica (mínima, no rompe lo universal) ===
+    // Nota: mantenemos umbrales operativos cuando tienen valor práctico.
+    if(key === "precip"){
+        const total = __sum(series);
+        const rainy = __countIf(series, v => v > 0);
+        if(total !== null) __setAnalysisRow(grid, "ACUMULADO TOTAL", `${__fmtNum(total)} MM`);
+        __setAnalysisRow(grid, "DÍAS CON LLUVIA", String(rainy));
+
+        // === BLOQUE EXTRA: TEMPORADA (UNIVERSAL) ===
+        try{
+            const MONTHS_ES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+            const unitLocal = (key === "snow") ? "CM" : "MM";
+
+            // 1) Agrupa por mes YYYY-MM y suma acumulado mensual
+            const monthTotalsYM = {}; // {"YYYY-MM": total}
+            for(let i=0;i<labels.length;i++){
+                const ym = __monthKey(labels[i]);
+                const v = series[i];
+                if(!ym) continue;
+                if(!__isFiniteNumber(v)) continue;
+                monthTotalsYM[ym] = (monthTotalsYM[ym] || 0) + Number(v);
+            }
+            const ymKeys = Object.keys(monthTotalsYM).sort();
+
+            if(ymKeys.length){
+                // 1️⃣ MES MÁXIMO ABSOLUTO (YYYY-MM)
+                let maxYM = ymKeys[0];
+                let maxVal = monthTotalsYM[maxYM];
+                for(const ym of ymKeys){
+                    const vv = monthTotalsYM[ym];
+                    if(vv > maxVal){ maxVal = vv; maxYM = ym; }
+                }
+                __setAnalysisRow(grid, "MES MÁXIMO ABSOLUTO", `${maxYM} (${__fmtNum(maxVal)} ${unitLocal})`);
+
+                // 2️⃣ MES RECURRENTE DOMINANTE (mes calendario que más veces fue el máximo anual)
+                const bestByYear = {}; // {YYYY:{ym,val}}
+                for(const ym of ymKeys){
+                    const y = ym.slice(0,4);
+                    const vv = monthTotalsYM[ym];
+                    if(!bestByYear[y] || vv > bestByYear[y].val) bestByYear[y] = {ym, val: vv};
+                }
+                const years = Object.keys(bestByYear).sort();
+                const nYears = years.length || 0;
+
+                const freq = new Array(12).fill(0);
+                for(const y of years){
+                    const ym = bestByYear[y].ym;
+                    const mIdx = parseInt(ym.slice(5,7),10) - 1;
+                    if(mIdx>=0 && mIdx<12) freq[mIdx] += 1;
+                }
+                let domMonthIdx = 0;
+                for(let i=1;i<12;i++) if(freq[i] > freq[domMonthIdx]) domMonthIdx = i;
+
+                __setAnalysisRow(
+                    grid,
+                    "MES RECURRENTE DOMINANTE",
+                    (nYears>0) ? `${MONTHS_ES[domMonthIdx]} — ${freq[domMonthIdx]} DE ${nYears} AÑOS` : "N/D"
+                );
+
+                // 3️⃣ TEMPORADA DOMINANTE (bloque consecutivo de meses calendario que supera el promedio mensual)
+                const calTotals = new Array(12).fill(0);
+                for(const ym of ymKeys){
+                    const mIdx = parseInt(ym.slice(5,7),10) - 1;
+                    if(mIdx>=0 && mIdx<12) calTotals[mIdx] += monthTotalsYM[ym];
+                }
+                const totalAll = calTotals.reduce((a,b)=>a+b,0);
+                if(totalAll > 0){
+                    const avg = totalAll / 12;
+                    const flags = calTotals.map(v => v >= avg);
+                    const anyFlag = flags.some(Boolean);
+
+                    if(!anyFlag){
+                        let mMax = 0;
+                        for(let i=1;i<12;i++) if(calTotals[i] > calTotals[mMax]) mMax = i;
+                        const pct = Math.round((calTotals[mMax]/totalAll)*100);
+                        __setAnalysisRow(grid, "TEMPORADA DOMINANTE", `${MONTHS_ES[mMax]} (${pct}% DEL TOTAL)`);
+                    }else{
+                        const flags2 = flags.concat(flags);
+                        const totals2 = calTotals.concat(calTotals);
+
+                        let best = {sum:-1, start:0, end:0, len:1};
+                        let i=0;
+                        while(i<flags2.length){
+                            if(!flags2[i]){ i++; continue; }
+                            let j=i;
+                            let segSum=0;
+                            while(j<flags2.length && flags2[j]){
+                                segSum += totals2[j];
+                                j++;
+                            }
+                            const segLen = j - i;
+                            if(segLen <= 12){
+                                if(segSum > best.sum || (segSum===best.sum && segLen < best.len)){
+                                    best = {sum:segSum, start:i, end:j-1, len:segLen};
+                                }
+                            }else{
+                                let windowSum = 0;
+                                for(let k=0;k<12;k++) windowSum += totals2[i+k];
+                                let wBest = {sum:windowSum, start:i, end:i+11, len:12};
+                                for(let s=i+1; s<=j-12; s++){
+                                    windowSum = windowSum - totals2[s-1] + totals2[s+11];
+                                    if(windowSum > wBest.sum) wBest = {sum:windowSum, start:s, end:s+11, len:12};
+                                }
+                                if(wBest.sum > best.sum) best = wBest;
+                            }
+                            i = j;
+                        }
+
+                        const startIdx = best.start % 12;
+                        const endIdx = best.end % 12;
+                        const pct = Math.round((best.sum / totalAll) * 100);
+
+                        const seasonText = (best.len === 1)
+                            ? `${MONTHS_ES[startIdx]} (${pct}% DEL TOTAL)`
+                            : `${MONTHS_ES[startIdx]}–${MONTHS_ES[endIdx]} (${pct}% DEL TOTAL)`;
+
+                        __setAnalysisRow(grid, "TEMPORADA DOMINANTE", seasonText);
+                    }
+                }else{
+                    __setAnalysisRow(grid, "TEMPORADA DOMINANTE", "N/D");
+                }
+            }else{
+                __setAnalysisRow(grid, "MES MÁXIMO ABSOLUTO", "N/D");
+                __setAnalysisRow(grid, "MES RECURRENTE DOMINANTE", "N/D");
+                __setAnalysisRow(grid, "TEMPORADA DOMINANTE", "N/D");
+            }
+        }catch(_e){}
+
+        return;
+    }
+
+    if(key === "wind"){
+        __setAnalysisRow(grid, "DÍAS ≥ 40 KM/H", String(__countIf(series, v => v >= 40)));
+        return;
+    }
+
+    if(key === "temp"){
+        __setAnalysisRow(grid, "DÍAS > 30°C", String(__countIf(series, v => v > 30)));
+        return;
+    }
+
+    if(key === "snow"){
+        const total = __sum(series);
+        const days = __countIf(series, v => v > 0);
+        if(total !== null) __setAnalysisRow(grid, "ACUMULADO TOTAL", `${__fmtNum(total)} CM`);
+        __setAnalysisRow(grid, "DÍAS CON NIEVE", String(days));
+
+        // === BLOQUE EXTRA: TEMPORADA (UNIVERSAL) ===
+        try{
+            const MONTHS_ES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+            const unitLocal = (key === "snow") ? "CM" : "MM";
+
+            // 1) Agrupa por mes YYYY-MM y suma acumulado mensual
+            const monthTotalsYM = {}; // {"YYYY-MM": total}
+            for(let i=0;i<labels.length;i++){
+                const ym = __monthKey(labels[i]);
+                const v = series[i];
+                if(!ym) continue;
+                if(!__isFiniteNumber(v)) continue;
+                monthTotalsYM[ym] = (monthTotalsYM[ym] || 0) + Number(v);
+            }
+            const ymKeys = Object.keys(monthTotalsYM).sort();
+
+            if(ymKeys.length){
+                // 1️⃣ MES MÁXIMO ABSOLUTO (YYYY-MM)
+                let maxYM = ymKeys[0];
+                let maxVal = monthTotalsYM[maxYM];
+                for(const ym of ymKeys){
+                    const vv = monthTotalsYM[ym];
+                    if(vv > maxVal){ maxVal = vv; maxYM = ym; }
+                }
+                __setAnalysisRow(grid, "MES MÁXIMO ABSOLUTO", `${maxYM} (${__fmtNum(maxVal)} ${unitLocal})`);
+
+                // 2️⃣ MES RECURRENTE DOMINANTE (mes calendario que más veces fue el máximo anual)
+                const bestByYear = {}; // {YYYY:{ym,val}}
+                for(const ym of ymKeys){
+                    const y = ym.slice(0,4);
+                    const vv = monthTotalsYM[ym];
+                    if(!bestByYear[y] || vv > bestByYear[y].val) bestByYear[y] = {ym, val: vv};
+                }
+                const years = Object.keys(bestByYear).sort();
+                const nYears = years.length || 0;
+
+                const freq = new Array(12).fill(0);
+                for(const y of years){
+                    const ym = bestByYear[y].ym;
+                    const mIdx = parseInt(ym.slice(5,7),10) - 1;
+                    if(mIdx>=0 && mIdx<12) freq[mIdx] += 1;
+                }
+                let domMonthIdx = 0;
+                for(let i=1;i<12;i++) if(freq[i] > freq[domMonthIdx]) domMonthIdx = i;
+
+                __setAnalysisRow(
+                    grid,
+                    "MES RECURRENTE DOMINANTE",
+                    (nYears>0) ? `${MONTHS_ES[domMonthIdx]} — ${freq[domMonthIdx]} DE ${nYears} AÑOS` : "N/D"
+                );
+
+                // 3️⃣ TEMPORADA DOMINANTE (bloque consecutivo de meses calendario que supera el promedio mensual)
+                const calTotals = new Array(12).fill(0);
+                for(const ym of ymKeys){
+                    const mIdx = parseInt(ym.slice(5,7),10) - 1;
+                    if(mIdx>=0 && mIdx<12) calTotals[mIdx] += monthTotalsYM[ym];
+                }
+                const totalAll = calTotals.reduce((a,b)=>a+b,0);
+                if(totalAll > 0){
+                    const avg = totalAll / 12;
+                    const flags = calTotals.map(v => v >= avg);
+                    const anyFlag = flags.some(Boolean);
+
+                    if(!anyFlag){
+                        let mMax = 0;
+                        for(let i=1;i<12;i++) if(calTotals[i] > calTotals[mMax]) mMax = i;
+                        const pct = Math.round((calTotals[mMax]/totalAll)*100);
+                        __setAnalysisRow(grid, "TEMPORADA DOMINANTE", `${MONTHS_ES[mMax]} (${pct}% DEL TOTAL)`);
+                    }else{
+                        const flags2 = flags.concat(flags);
+                        const totals2 = calTotals.concat(calTotals);
+
+                        let best = {sum:-1, start:0, end:0, len:1};
+                        let i=0;
+                        while(i<flags2.length){
+                            if(!flags2[i]){ i++; continue; }
+                            let j=i;
+                            let segSum=0;
+                            while(j<flags2.length && flags2[j]){
+                                segSum += totals2[j];
+                                j++;
+                            }
+                            const segLen = j - i;
+                            if(segLen <= 12){
+                                if(segSum > best.sum || (segSum===best.sum && segLen < best.len)){
+                                    best = {sum:segSum, start:i, end:j-1, len:segLen};
+                                }
+                            }else{
+                                let windowSum = 0;
+                                for(let k=0;k<12;k++) windowSum += totals2[i+k];
+                                let wBest = {sum:windowSum, start:i, end:i+11, len:12};
+                                for(let s=i+1; s<=j-12; s++){
+                                    windowSum = windowSum - totals2[s-1] + totals2[s+11];
+                                    if(windowSum > wBest.sum) wBest = {sum:windowSum, start:s, end:s+11, len:12};
+                                }
+                                if(wBest.sum > best.sum) best = wBest;
+                            }
+                            i = j;
+                        }
+
+                        const startIdx = best.start % 12;
+                        const endIdx = best.end % 12;
+                        const pct = Math.round((best.sum / totalAll) * 100);
+
+                        const seasonText = (best.len === 1)
+                            ? `${MONTHS_ES[startIdx]} (${pct}% DEL TOTAL)`
+                            : `${MONTHS_ES[startIdx]}–${MONTHS_ES[endIdx]} (${pct}% DEL TOTAL)`;
+
+                        __setAnalysisRow(grid, "TEMPORADA DOMINANTE", seasonText);
+                    }
+                }else{
+                    __setAnalysisRow(grid, "TEMPORADA DOMINANTE", "N/D");
+                }
+            }else{
+                __setAnalysisRow(grid, "MES MÁXIMO ABSOLUTO", "N/D");
+                __setAnalysisRow(grid, "MES RECURRENTE DOMINANTE", "N/D");
+                __setAnalysisRow(grid, "TEMPORADA DOMINANTE", "N/D");
+            }
+        }catch(_e){}
+
+        return;
+    }
+
+    if(key === "humidity"){
+        __setAnalysisRow(grid, "DÍAS ≥ 90%", String(__countIf(series, v => v >= 90)));
+        return;
+    }
+
+    if(key === "pressure"){
+        // Umbral útil pero NO depende del clima para operar (solo orientativo)
+        __setAnalysisRow(grid, "DÍAS < 1000 HPA", String(__countIf(series, v => v < 1000)));
+        __setAnalysisRow(grid, "P10 (BAJA)", (p10===null) ? "N/D" : __fmtNum(p10));
+        return;
+    }
+
+    if(key === "clouds"){
+        __setAnalysisRow(grid, "DÍAS ≥ 80%", String(__countIf(series, v => v >= 80)));
+        return;
+    }
+}
+        function movingAverage(arr, k) {
+            if (!arr || !arr.length) return arr;
+            const out = new Array(arr.length).fill(null);
+            const half = Math.floor(k/2);
+            for (let i=0;i<arr.length;i++){
+                let sum = 0, cnt = 0;
+                for (let j=i-half;j<=i+half;j++){
+                    if (j<0 || j>=arr.length) continue;
+                    const v = arr[j];
+                    if (v === null || v === undefined || Number.isNaN(v)) continue;
+                    sum += v; cnt++;
+                }
+                out[i] = cnt ? Math.round((sum/cnt)*10)/10 : null;
+            }
+            return out;
+        }
+
+        function aggregateDailyToMonthly(dates, values, agg) {
+            // agg: 'monthly' or 'yearly'
+            const buckets = new Map();
+            for (let i=0;i<dates.length;i++){
+                const d = dates[i];
+                const v = values[i];
+                if (v === null || v === undefined || Number.isNaN(v)) continue;
+                const key = agg === 'monthly' ? d.slice(0,7) : d.slice(0,4);
+                if (!buckets.has(key)) buckets.set(key, []);
+                buckets.get(key).push(v);
+            }
+            const labels = Array.from(buckets.keys()).sort();
+            const out = labels.map(k => {
+                const arr = buckets.get(k);
+                const sum = arr.reduce((a,b)=>a+b,0);
+                return Math.round((sum/arr.length)*10)/10;
+            });
+            return { labels, values: out };
+        }
+
+        async function fetchArchiveDaily(lat, lon, from, to, variable) {
+            // Por rendimiento pedimos un set mínimo de variables diarias.
+            // Para variables no soportadas directamente en daily, pedimos hourly y agregamos.
+            const base = "https://archive-api.open-meteo.com/v1/archive";
+            const tz = "auto";
+
+            // Variables diarias directas que usamos en análisis climático:
+            // temp_max, wind_max, precip_sum
+            const dailyVars = ["temperature_2m_max","wind_speed_10m_max","precipitation_sum","snowfall_sum"];
+
+            // Humedad/Presión/Nubosidad -> hourly para promediar
+            const needsHourly = ["humidity","pressure","clouds"].includes(variable);
+            const hourlyVars = needsHourly
+                ? ["relative_humidity_2m","pressure_msl","cloud_cover"]
+                : [];
+
+            const url = `${base}?latitude=${lat}&longitude=${lon}&start_date=${from}&end_date=${to}`
+                + `&daily=${dailyVars.join(",")}`
+                + (hourlyVars.length ? `&hourly=${hourlyVars.join(",")}` : "")
+                + `&timezone=${encodeURIComponent(tz)}`;
+
+            const res = await fetch(url);
+            if (!res.ok) throw new Error("ARCHIVO: fallo API");
+            const js = await res.json();
+
+            // Construye series diarias según variable
+            const dates = js.daily.time;
+
+            function dailyAvgFromHourly(hourlyArr) {
+                const out = new Array(dates.length).fill(null);
+                if (!hourlyArr || !Array.isArray(hourlyArr) || !js.hourly || !js.hourly.time) return out;
+                // hourlies están en orden; asumimos 24 por día en timezone auto
+                for (let d=0; d<dates.length; d++){
+                    let sum=0,cnt=0;
+                    const baseIdx = d*24;
+                    for (let h=0; h<24; h++){
+                        const v = hourlyArr[baseIdx+h];
+                        if (v === null || v === undefined || Number.isNaN(v)) continue;
+                        sum += v; cnt++;
+                    }
+                    out[d] = cnt ? Math.round((sum/cnt)*10)/10 : null;
+                }
+                return out;
+            }
+
+            let values = [];
+            let yLabel = "VALOR";
+
+            if (variable === "temp") { values = js.daily.temperature_2m_max; yLabel = "TEMPERATURA (°C)"; }
+            else if (variable === "wind") { values = js.daily.wind_speed_10m_max; yLabel = "VELOCIDAD (KM/H)"; }
+            else if (variable === "precip") { values = js.daily.precipitation_sum; yLabel = "PRECIPITACIÓN (MM)"; }
+            else if (variable === "snow") { values = js.daily.snowfall_sum; yLabel = "NIEVE (CM EQ. AGUA)"; }
+            else if (variable === "humidity") { values = dailyAvgFromHourly(js.hourly?.relative_humidity_2m); yLabel = "HUMEDAD (%)"; }
+            else if (variable === "pressure") { values = dailyAvgFromHourly(js.hourly?.pressure_msl); yLabel = "PRESIÓN (HPA)"; }
+            else if (variable === "clouds") { values = dailyAvgFromHourly(js.hourly?.cloud_cover); yLabel = "COBERTURA (%)"; }
+            else { values = js.daily.temperature_2m_max; yLabel = "TEMPERATURA (°C)"; }
+
+            return { dates, values, yLabel };
+        }
+
+        async function refreshArchiveAndChart() {
+            // fuerza refetch
+            archiveData = null;
+            archiveKey = null;
+            await updateChart(true);
+        }
+
+        /* ✅ FUNCIÓN DE GRÁFICOS: DIARIO / HORARIO + RANGOS + ARCHIVO + SUAVIZADO */
+        async function updateChart(forceArchive = false) {
+            if (!globalData) return;
+
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            const variable = document.getElementById('chartVar').value;
+            const timeMode = document.getElementById('timeMode').value;
+            const rangeMode = document.getElementById('rangeMode').value;
+            const smoothMode = document.getElementById('smoothMode').value;
+
+            // Promedio diario desde arreglos horarios (24 valores por día)
+            function dailyAvg(arr) {
+                if (!arr || !Array.isArray(arr) || !globalData.hourly) return globalData.daily.time.map(() => null);
+                return globalData.daily.time.map((_, d) => {
+                    let sum = 0, count = 0;
+                    const base = d * 24;
+                    for (let h = 0; h < 24; h++) {
+                        const v = arr[base + h];
+                        if (v !== undefined && v !== null && !Number.isNaN(v)) { sum += v; count++; }
+                    }
+                    return count ? Math.round((sum / count) * 10) / 10 : null;
+                });
+            }
+
+            // === HORARIO (24/48/72) ===
+            if (timeMode === 'hourly') {
+                populateHourDaySelect();
+                const day = document.getElementById('hourDay').value;
+                const win = parseInt(document.getElementById('hourWindow').value, 10);
+
+                const times = globalData.hourly.time || [];
+                const idx0 = times.indexOf(day + "T00:00");
+                if (idx0 === -1) return;
+
+                const sliceTimes = times.slice(idx0, idx0 + win);
+                const labels = sliceTimes.map(t => t.slice(11,16)); // HH:MM
+
+                const H = globalData.hourly;
+
+                let dataArr = [];
+                let yLabel = "VALOR";
+                let color = "var(--text)";
+                let chartType = "bar";
+                let fill = false;
+
+                if (variable === "temp") { dataArr = H.temperature_2m; yLabel="TEMPERATURA (°C)"; color="var(--text)"; }
+                else if (variable === "wind") { dataArr = H.wind_speed_10m; yLabel="VELOCIDAD (KM/H)"; color="#ff9900"; }
+                else if (variable === "precip") { dataArr = H.precipitation; yLabel="PRECIPITACIÓN (MM/H)"; color="var(--text)"; chartType="bar"; fill=false; }
+                else if (variable === "snow") { dataArr = H.snowfall; yLabel="NIEVE (CM/H EQ. AGUA)"; color="var(--text)"; chartType="bar"; fill=false; }
+                else if (variable === "pressure") { dataArr = H.pressure_msl; yLabel="PRESIÓN (HPA)"; color="#ff00ff"; }
+                else if (variable === "humidity") { dataArr = H.relative_humidity_2m; yLabel="HUMEDAD (%)"; color="#3399ff"; }
+                else if (variable === "clouds") { dataArr = H.cloud_cover; yLabel="COBERTURA (%)"; color="#aaaaaa"; }
+                else { dataArr = H.temperature_2m; yLabel="TEMPERATURA (°C)"; }
+
+                const seg = dataArr.slice(idx0, idx0 + win);
+                let series = seg.map(v => (v === undefined ? null : v));
+
+                const __rawLabelsA = sliceTimes.slice(0, win);
+                const __rawSeriesA = series.slice();
+                try{ __updateAnalysisPanel(variable, __rawLabelsA, __rawSeriesA, yLabel); }catch(e){}
+
+                
+                // FORZAR UNIFORMIDAD: TODO EN BARRAS
+                chartType = 'bar';
+                fill = false;
+if (smoothMode === "ma3") series = movingAverage(series, 3);
+                if (smoothMode === "ma5") series = movingAverage(series, 5);
+
+                if (chartInstance) chartInstance.destroy();
+
+            // RANGO DINÁMICO ARRIBA DEL GRÁFICO (EJ: 2016–2025)
+            const __rangeText = (() => {
+                try{
+                    if(!labels || !labels.length) return "";
+                    const y1 = String(labels[0]).slice(0,4);
+                    const y2 = String(labels[labels.length-1]).slice(0,4);
+                    if(/^[0-9]{4}$/.test(y1) && /^[0-9]{4}$/.test(y2)) return `${y1}–${y2}`;
+                    return "";
+                }catch(e){ return ""; }
+            })();
+                chartInstance = new Chart(ctx, {
+                    type: chartType,
+                    data: { labels, datasets: [{ data: series, borderColor: color, borderWidth: 2,
+                        backgroundColor: chartType === 'bar' ? (color + '40') : (fill ? (color + '20') : 'transparent'),
+                        fill: chartType === 'bar' ? false : fill, pointRadius: 2, pointBackgroundColor: 'var(--panel)', pointBorderColor: color }]},
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: __rangeText || '', padding: { bottom: 6 }, font: { family: 'Consolas', size: 12, weight: 'bold' }, color: '#666' },
+                            tooltip: { backgroundColor: 'rgba(255,255,255,0.98)', titleColor: '#111', bodyColor:color, borderColor:'#b9b9b9', borderWidth:1 }
+                    },
+                    scales: {
+                            x: { ticks: { color:'#888', font:{family:'Consolas'} }, grid:{ color:'#d0d0d0' },
+                                title:{ display:true, text:`HORARIO (${day})`, color:'#666', font:{family:'Consolas', size:10, weight:'bold'} } },
+                            y: { ticks: { color:'#888', font:{family:'Consolas'} }, grid:{ color:'#d0d0d0' },
+                                title:{ display:true, text:yLabel, color:color, font:{family:'Consolas', size:10, weight:'bold'} } }
+                        }
+                    }
+                });
+                return;
+            }
+
+            // === DIARIO (forecast/past_days o ARCHIVO) ===
+            const daily = globalData.daily;
+            const hourly = globalData.hourly || {};
+
+            let label = "Datos";
+            let dataArr = [];
+            let color = "var(--text)";
+            let yLabel = "VALOR";
+            let chartType = "bar";
+            let fill = false;
+
+            // dataset base: global
+            function setDailySeriesFromGlobal() {
+                if (variable === 'temp') { label="T° Máx"; dataArr=daily.temperature_2m_max; color="var(--text)"; yLabel="TEMPERATURA (°C)"; chartType="line"; }
+                else if (variable === 'wind') { label="Viento Máx"; dataArr=daily.wind_speed_10m_max; color="#ff9900"; yLabel="VELOCIDAD (KM/H)"; chartType="line"; }
+                else if (variable === 'precip') { label="Lluvia"; dataArr=daily.precipitation_sum; color="var(--text)"; yLabel="PRECIPITACIÓN (MM)"; chartType="bar"; fill=false; }
+                else if (variable === 'snow') { label="Nieve"; dataArr=daily.snowfall_sum; color="var(--text)"; yLabel="NIEVE (CM EQ. AGUA)"; chartType="bar"; fill=false; }
+                else if (variable === 'pressure') { label="Presión Media"; dataArr=dailyAvg(hourly.pressure_msl); color="#ff00ff"; yLabel="PRESIÓN (HPA)"; chartType="line"; }
+                else if (variable === 'humidity') { label="Humedad Media"; dataArr=dailyAvg(hourly.relative_humidity_2m); color="#3399ff"; yLabel="HUMEDAD (%)"; chartType="line"; }
+                else if (variable === 'clouds') { label="Nubosidad Media"; dataArr=dailyAvg(hourly.cloud_cover); color="#aaaaaa"; yLabel="COBERTURA (%)"; chartType="line"; }
+                else { label="T° Máx"; dataArr=daily.temperature_2m_max; color="var(--text)"; yLabel="TEMPERATURA (°C)"; chartType="line"; }
+            }
+
+            let labelsFull = daily.time.slice();
+            setDailySeriesFromGlobal();
+            let seriesFull = dataArr ? dataArr.slice() : [];
+
+            // RANGOS (indices) usando HOY = 7 (por past_days=7)
+            let startIdx = 0;
+            let endIdx = labelsFull.length;
+
+            if (rangeMode === "past7_today") { startIdx = 0; endIdx = Math.min(8, labelsFull.length); }
+            else if (rangeMode === "today_future10") { startIdx = Math.min(7, labelsFull.length-1); endIdx = labelsFull.length; }
+            else if (rangeMode === "all_loaded") { startIdx = 0; endIdx = labelsFull.length; }
+
+            // ARCHIVO (AÑOS PASADOS)
+            let labels = labelsFull.slice(startIdx, endIdx);
+            let series = seriesFull.slice(startIdx, endIdx).map(v => (v === undefined ? null : v));
+
+            if (rangeMode === "archive_custom") {
+                ensureArchiveDatesDefaults();
+                const from = document.getElementById('archFrom').value;
+                const to = document.getElementById('archTo').value;
+                const agg = document.getElementById('archAgg').value;
+
+                const lat = lastLat ?? -20.214;
+                const lon = lastLon ?? -70.152;
+
+                const key = JSON.stringify({lat,lon,from,to,variable});
+                if (forceArchive || !archiveData || archiveKey !== key) {
+                    try {
+                        // Indicador en header
+                        const sm = document.getElementById('statusMsg');
+                        if (sm) { sm.innerText = "CARGANDO ARCHIVO CLIMÁTICO..."; sm.style.color = "yellow"; }
+
+                        const out = await fetchArchiveDaily(lat, lon, from, to, variable);
+                        archiveData = out;
+                        archiveKey = key;
+
+                        if (sm) { sm.innerText = "SISTEMA ACTIVO - DATOS RECIBIDOS"; sm.style.color = "var(--text)"; }
+                    } catch (e) {
+                        console.error(e);
+                        alert("No se pudo cargar ARCHIVO climático. Verifique fechas y conexión.");
+                        // fallback: usar datos cargados
+                    }
+                }
+
+                if (archiveData && archiveData.dates && archiveData.values) {
+                    labels = archiveData.dates.slice();
+                    series = archiveData.values.slice();
+                    yLabel = archiveData.yLabel || yLabel;
+                    // para precipitación, usa barras
+                    if (variable === "precip") { chartType = "bar"; fill=false; color="var(--text)"; }
+                }
+
+                // agregación
+                if (agg === "monthly" || agg === "yearly") {
+                    const ag = aggregateDailyToMonthly(labels, series, agg);
+                    labels = ag.labels;
+                    series = ag.values;
+                }
+            }
+
+
+            // === ANÁLISIS INTELIGENTE (SEGÚN VARIABLE) ===
+            const __rawLabelsB = labels.slice();
+            const __rawSeriesB = series.slice();
+            try{ __updateAnalysisPanel(variable, __rawLabelsB, __rawSeriesB, yLabel); }catch(e){}
+
+            // suavizado
+            if (smoothMode === "ma3") series = movingAverage(series, 3);
+            if (smoothMode === "ma5") series = movingAverage(series, 5);
+
+            
+            // FORZAR UNIFORMIDAD: TODO EN BARRAS
+            chartType = 'bar';
+            fill = false;
+if (chartInstance) chartInstance.destroy();
+
+            // Etiquetas compactas: día del mes si formato YYYY-MM-DD
+            // Etiquetas determinísticas para eje X (sin locale)
+// Etiquetas determinísticas para eje X (sin depender del locale)
+const compactLabels = labels.map(t => {
+    const MONTHS = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+    if (typeof t !== "string") return t;
+
+    // Horario: YYYY-MM-DDTHH:MM...
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(t)) return t.slice(11,16);
+
+    // Anual: YYYY
+    if (/^\d{4}$/.test(t)) return t;
+
+    // Mensual: YYYY-MM -> MMM YYYY
+    if (/^\d{4}-\d{2}$/.test(t)) {
+        const yyyy = t.slice(0,4);
+        const mm = parseInt(t.slice(5,7),10);
+        const m = MONTHS[mm-1] || "";
+        return `${m} ${yyyy}`;
+    }
+
+    // Diario: YYYY-MM-DD -> DD MMM YYYY
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+        const yyyy = t.slice(0,4);
+        const mm = parseInt(t.slice(5,7),10);
+        const dd = t.slice(8,10);
+        const m = MONTHS[mm-1] || "";
+        return `${dd} ${m} ${yyyy}`;
+    }
+
+    return t;
+});
+
+chartInstance = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: compactLabels,
+                    datasets: [{
+                        label: label,
+                        data: series,
+                        borderColor: color,
+                        borderWidth: 2,
+                        backgroundColor: chartType === 'bar' ? (color + '40') : (fill ? (color + '20') : 'transparent'),
+                        fill: chartType === 'bar' ? false : fill,
+                        pointRadius: 3,
+                        pointBackgroundColor: 'var(--panel)',
+                        pointBorderColor: color
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'var(--panel)',
+                            titleColor: '#fff',
+                            bodyColor: color,
+                            borderColor: '#333',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#888', font: { family: 'Consolas' } },
+                            grid: { color: '#d0d0d0' },
+                            title: {
+                                display: true,
+                                text: (rangeMode === "archive_custom")
+                                    ? "ARCHIVO CLIMÁTICO"
+                                    : "DÍAS (CARGADO)",
+                                color: '#666',
+                                font: { family: 'Consolas', size: 10, weight: 'bold' },
+                                padding: { top: 10 }
+                            }
+                        },
+                        y: {
+                            ticks: { color: '#888', font: { family: 'Consolas' } },
+                            grid: { color: '#d0d0d0' },
+                            title: {
+                                display: true,
+                                text: yLabel,
+                                color: color,
+                                font: { family: 'Consolas', size: 10, weight: 'bold' }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // GENERADOR DE GRÁFICOS DE IMPRESIÓN (SIN FILTRO INVERT - NEGRO PURO)
+        function renderPrintCharts(data) {
+            const daily = data.daily;
+            const labels = daily.time.map(t => t.slice(8,10));
+            const commonOptions = {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { color: 'var(--panel)', font: {size:8} }, grid: { display:false } },
+                    y: { ticks: { color: 'var(--panel)', font: {size:8} }, grid: { color: '#ccc' } }
+                },
+                elements: { line: { borderColor: 'var(--panel)', borderWidth: 2 }, point: { radius: 0 } }
+            };
+
+            if(pcTemp) pcTemp.destroy();
+            pcTemp = new Chart(document.getElementById('pChartTemp'), {
+                type: 'line',
+                data: { labels: labels, datasets: [{ data: daily.temperature_2m_max, borderColor: 'var(--panel)', fill: false }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'TEMPERATURA MAX (°C)', color: 'var(--panel)' } } }
+            });
+
+            if(pcWind) pcWind.destroy();
+            pcWind = new Chart(document.getElementById('pChartWind'), {
+                type: 'bar',
+                data: { labels: labels, datasets: [{ data: daily.wind_speed_10m_max, backgroundColor: 'var(--panel)' }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'VIENTO MAX (KM/H)', color: 'var(--panel)' } } }
+            });
+
+            let humArr = [];
+            if(data.hourly.relative_humidity_2m) {
+                 humArr = daily.time.map((_, i) => { let s=0; for(let h=0;h<24;h++) s+=data.hourly.relative_humidity_2m[i*24+h]; return Math.round(s/24); });
+            }
+            if(pcHum) pcHum.destroy();
+            pcHum = new Chart(document.getElementById('pChartHum'), {
+                type: 'line',
+                data: { labels: labels, datasets: [{ data: humArr, borderColor: 'var(--panel)', fill: false }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'HUMEDAD PROM (%)', color: 'var(--panel)' } } }
+            });
+
+            let cloudArr = [];
+            if(data.hourly.cloud_cover) {
+                 cloudArr = daily.time.map((_, i) => { let s=0; for(let h=0;h<24;h++) s+=data.hourly.cloud_cover[i*24+h]; return Math.round(s/24); });
+            }
+            if(pcClouds) pcClouds.destroy();
+            pcClouds = new Chart(document.getElementById('pChartClouds'), {
+                type: 'line',
+                data: { labels: labels, datasets: [{ data: cloudArr, borderColor: 'var(--panel)', fill: true, backgroundColor: '#ccc' }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'COBERTURA NUBOSA (%)', color: 'var(--panel)' } } }
+            });
+        }
+
+        async function checkVolcanoes() {
+             const div = document.getElementById('volcanoStatus');
+             try {
+                const res = await fetch('https://volcanoes.usgs.gov/hans-public/api/volcano/getElevatedVolcanoes');
+                const data = await res.json();
+                const alert = data.find(v => v.vname.includes("Chile") || v.vname.includes("Lascar") || v.vname.includes("Villarrica"));
+                if(alert) div.innerHTML = `<span style="color:red; animation:blink 1s infinite">⚠ ALERTA ACTIVA: ${alert.vname} (${alert.colorcode})</span>`;
+                else div.innerText = "SERNAGEOMIN: SIN ACTIVIDAD CRÍTICA REPORTADA";
+             } catch(e) {}
+        }
+    
+// Inicialización: fuerza cálculo de análisis/nota según variable seleccionada
+document.addEventListener('DOMContentLoaded', ()=>{ try{ updateChart(); }catch(e){} });
+</script>
+</body>
+</html>
